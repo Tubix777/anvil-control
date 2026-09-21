@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.rpm
+*.tar.gz
+anvil-report*.json
+anvil-metrics*.csv

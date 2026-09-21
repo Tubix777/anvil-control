@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Anvil Control
+Comment=Hardware monitoring and power profiles for ASUS desktops
+Comment[tr]=ASUS masaüstü bilgisayarlar için donanım takibi ve güç profilleri
+Exec=anvil-control
+Icon=computer
+Terminal=false
+Categories=System;Monitor;
+Keywords=ASUS;fan;temperature;power;
+StartupNotify=true
