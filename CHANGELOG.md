@@ -1,5 +1,23 @@
 # Değişiklikler
 
+## 0.4.0 — 2026-09-22
+
+- H610M-K D4 / NCT6798 kanal 1 ve 2 için gerçek donanım fan kontrolü.
+- Beş noktalı eğri, tam hız, root’a ait başlangıç yedeği ve geri dönüş.
+- Sınırlı ayrıcalıklı yardımcı, girdi doğrulama ve yazma sonrası geri okuma.
+- OpenRGB cihaz, renk ve efekt seçimi; Kingston Fury DDR4 algılaması.
+- RPM içinde sürücü yükleme ayarı; GitHub kullanım ve katkı belgeleri.
+- 0.3 sürümünün animasyon, uyarı, grafik ve sensör özellikleri dahil.
+
+## 0.3.0 — 2026-09-21
+
+- Doluluk çubuğu, sayfa geçişi, CPU şeması ve GPU fan simgesi animasyonları.
+- Animasyonları kapatma seçeneği; gizli fan animasyonunda zamanlayıcı durdurulur.
+- CPU/GPU/RAM grafik seçimi ve izlemeyi duraklatma.
+- Sensör araması ve min/maks ölçümleri.
+- VRAM takibi, ayarlanabilir sıcaklık uyarıları, oturum olay günlüğü.
+- Eksik ölçümler grafikte boşluk olarak korunur.
+
 ## 0.2.0 — 2026-09-21
 
 - Siyah-sarı tema ve daha okunaklı sans-serif yazı tipleri.

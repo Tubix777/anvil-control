@@ -1,0 +1,124 @@
+#!/usr/bin/python3 -I
+"""Privileged, board-scoped hardware curve writer. No user paths or shell commands."""
+import fcntl
+import json
+import os
+import sys
+from pathlib import Path
+
+
+def validate_curve(points):
+    if not isinstance(points, list) or len(points) != 5:
+        raise ValueError('Beş eğri noktası gerekli.')
+    last_temp, last_pwm = -1, -1
+    for point in points:
+        if not isinstance(point, list) or len(point) != 2:
+            raise ValueError('Geçersiz nokta.')
+        temp, speed = point
+        if type(temp) is not int or type(speed) is not int:
+            raise ValueError('Tam sayı gerekli.')
+        if not (20 <= temp <= 85 and 50 <= speed <= 100 and temp > last_temp and speed >= last_pwm):
+            raise ValueError('Sıcaklıklar artmalı (20–85 °C), hız azalmamalı (%50–100).')
+        last_temp, last_pwm = temp, speed
+    if points[-1][1] != 100 or points[-2][1] != 100:
+        raise ValueError('Son iki noktada %100 gerekli.')
+    return points
+
+
+def locate(channel):
+    if Path('/sys/class/dmi/id/board_name').read_text().strip() != 'PRIME H610M-K D4':
+        raise ValueError('Bu yardımcı yalnızca PRIME H610M-K D4 üzerinde etkin.')
+    if channel not in (1, 2):
+        raise ValueError('Yalnızca doğrulanan kanal 1 ve 2 destekleniyor.')
+    matches = [p for p in Path('/sys/class/hwmon').glob('hwmon*') if (p/'name').read_text().strip() == 'nct6798']
+    if len(matches) != 1:
+        raise ValueError('Tek bir NCT6798 denetleyicisi gerekli; nct6775 sürücüsünü yükleyin.')
+    return matches[0]
+
+
+def transact(hw, channel, action, points, directory=Path('/run/anvil-control')):
+    stem = f'pwm{channel}'
+    def read(name):
+        return int((hw/name).read_text().strip())
+    def write(name, value):
+        (hw/name).write_text(str(value))
+        if read(name) != value:
+            raise RuntimeError(f'{name} geri okuma uyuşmazlığı.')
+    source = read(stem+'_temp_sel')
+    if 'PECI' not in (hw/f'temp{source}_label').read_text():
+        raise ValueError('Doğrulanmış PECI işlemci sıcaklık kaynağı gerekli.')
+    if not 0 <= read(f'temp{source}_input') < 110000:
+        raise ValueError('Sıcaklık kaynağı okunamıyor.')
+    if read(stem+'_mode') != 1:
+        raise ValueError('Bu sürüm yalnızca PWM modundaki fanları kontrol eder.')
+    directory.mkdir(mode=0o700, exist_ok=True)
+    if directory.is_symlink() or directory.stat().st_uid != os.geteuid() or directory.stat().st_mode & 0o077:
+        raise ValueError('Yedek dizini güvenli değil.')
+    lock = os.open(directory/'lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(lock, 'w') as lockfile:
+        fcntl.flock(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fields = [stem+'_enable'] + [f'{stem}_auto_point{i}_{suffix}' for i in range(1, 6) for suffix in ('temp', 'pwm')]
+        before = {key: read(key) for key in fields}
+        if before[stem+'_enable'] not in (0, 5):
+            raise ValueError('Başlangıç modu otomatik eğri veya tam hız olmalı.')
+        backup = directory/f'channel-{channel}.json'
+        if not backup.exists():
+            if action == 'restore':
+                raise ValueError('Bu açılış için kaydedilmiş başlangıç ayarı yok.')
+            fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'w') as file:
+                json.dump(before, file)
+        if action == 'restore':
+            with open(backup) as file:
+                target = json.load(file)
+            if set(target) != set(fields) or any(type(v) is not int for v in target.values()):
+                raise ValueError('Geçersiz başlangıç kaydı.')
+        elif action == 'full':
+            target = dict(before)
+            target[stem+'_enable'] = 0
+        elif action == 'curve':
+            validate_curve(points)
+            target = {stem+'_enable': 5}
+            for i, (temp, speed) in enumerate(points, 1):
+                target[f'{stem}_auto_point{i}_temp'] = temp*1000
+                target[f'{stem}_auto_point{i}_pwm'] = round(speed*255/100)
+        else:
+            raise ValueError('Geçersiz işlem.')
+        try:
+            write(stem+'_enable', 0)
+            for key in fields[1:]:
+                if read(key) != target[key]:
+                    write(key, target[key])
+            write(stem+'_enable', target[stem+'_enable'])
+        except Exception:
+            # Stay at full speed if rollback itself fails.
+            write(stem+'_enable', 0)
+            for key in fields[1:]:
+                if read(key) != before[key]:
+                    write(key, before[key])
+            write(stem+'_enable', before[stem+'_enable'])
+            raise
+        return {'ok': True, 'channel': channel, 'action': action, 'verified': {key: read(key) for key in fields}}
+
+
+def main():
+    if os.geteuid() != 0:
+        raise PermissionError('Yönetici yetkisi gerekli.')
+    if len(sys.argv) not in (3, 4):
+        raise ValueError('Kullanım: kanal curve|full|restore [eğri JSON]')
+    channel = int(sys.argv[1])
+    action = sys.argv[2]
+    points = json.loads(sys.argv[3]) if len(sys.argv) == 4 else None
+    if action not in ('curve', 'full', 'restore'):
+        raise ValueError('Geçersiz işlem.')
+    if action == 'curve':
+        validate_curve(points)
+    print(json.dumps(transact(locate(channel), channel, action, points)))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as error:
+        print(str(error), file=sys.stderr)
+        sys.exit(1)
