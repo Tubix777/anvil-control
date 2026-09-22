@@ -126,10 +126,48 @@ class Nvidia:
             return None
 
 
+class AmdGpu:
+    """Read-only amdgpu sysfs telemetry; absent fields remain unknown."""
+    def __init__(self, root=Path('/sys/class/drm')):
+        self.root = root
+
+    def sample(self):
+        for card in sorted(self.root.glob('card[0-9]*')):
+            device = card / 'device'
+            if not (device / 'driver').exists() or (device / 'driver').resolve().name != 'amdgpu':
+                continue
+            hw = next((p for p in sorted((device / 'hwmon').glob('hwmon*'))
+                       if read(p / 'name') == 'amdgpu'), None)
+            out = {'name': 'AMD Radeon (amdgpu)', 'source': 'amdgpu/sysfs'}
+            usage = number(device / 'gpu_busy_percent')
+            if usage is not None and 0 <= usage <= 100:
+                out['usage'] = usage
+            total = number(device / 'mem_info_vram_total')
+            used = number(device / 'mem_info_vram_used')
+            if total is not None and total > 0 and used is not None and 0 <= used <= total:
+                out.update(memory_total=total, memory_used=used)
+            if hw:
+                temperature = number(hw / 'temp1_input', 1000)
+                power = number(hw / 'power1_average', 1000000)
+                if power is None:
+                    power = number(hw / 'power1_input', 1000000)
+                fan_rpm = number(hw / 'fan1_input')
+                if temperature is not None and -20 <= temperature <= 150:
+                    out['temperature'] = temperature
+                if power is not None and power >= 0:
+                    out['power'] = power
+                if fan_rpm is not None and fan_rpm >= 0:
+                    out['fan_rpm'] = fan_rpm
+            if len(out) > 2:
+                return out
+        return None
+
+
 class Monitor:
     def __init__(self):
         self.previous = None
         self.gpu = Nvidia()
+        self.amd_gpu = AmdGpu()
         self.identity = self.discover()
 
     def discover(self):
@@ -167,5 +205,6 @@ class Monitor:
                     cpu_mhz=number('/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq', 1000),
                     memory_used=mem['MemTotal']-mem['MemAvailable'], memory_total=mem['MemTotal'],
                     disk_used=disk.used, disk_total=disk.total,
-                    uptime=read('/proc/uptime').split()[0], sensors=ss, gpu=self.gpu.sample(),
+                    uptime=read('/proc/uptime').split()[0], sensors=ss,
+                    gpu=self.gpu.sample() or self.amd_gpu.sample(),
                     profile=property_value('ActiveProfile'), profiles=property_value('Profiles') or [])

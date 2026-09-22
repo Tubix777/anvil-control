@@ -11,13 +11,14 @@
 
 ## Donanım kapsamı
 
-Anvil, anakart modelini DMI’dan okur ve Linux’un sunduğu sıcaklık, fan ve güç arayüzlerini gösterir. Intel `coretemp` ile AMD `k10temp` / `zenpower` işlemci sıcaklıkları okunur. NVIDIA GPU ölçümleri NVML’ye, RGB cihazları isteğe bağlı OpenRGB’ye bağlıdır. Mevcut aygıta göre bazı değerler gösterilmeyebilir.
+Anvil, anakart modelini DMI’dan okur ve Linux’un sunduğu sıcaklık, fan ve güç arayüzlerini gösterir. Intel `coretemp` ile AMD `k10temp` / `zenpower` işlemci sıcaklıkları okunur. NVIDIA GPU ölçümleri NVML’ye, AMD GPU ölçümleri `amdgpu` sysfs arayüzlerine, RGB cihazları isteğe bağlı OpenRGB’ye bağlıdır. Mevcut aygıta göre bazı değerler gösterilmeyebilir.
 
 | Özellik | Kapsam |
 | --- | --- |
 | Anakart, sensör, fan devri ve güç profilleri | Linux sürücüsü / servisinin sunduğu arayüzler |
 | Grafik, RAM ve depolama | Genel Linux ölçümleri |
 | NVIDIA GPU | İsteğe bağlı NVML sürücüsü |
+| AMD GPU | `amdgpu` sürücüsünün sunduğu salt-okunur sysfs ölçümleri; gerçek AMD donanımında henüz sınanmadı |
 | RGB | OpenRGB’nin algıladığı aygıt ve modlar |
 | Yazılabilir anakart fan eğrisi | Şimdilik yalnızca aşağıdaki, fiziksel olarak doğrulanmış H610M-K D4 profili |
 
@@ -28,7 +29,7 @@ Bu nedenle uygulama farklı ASUS sistemlerinde genel izleme için kullanılabili
 [Sürümlerden](https://github.com/Tubix777/anvil-control/releases) RPM’yi indirin:
 
 ```bash
-sudo dnf install ./anvil-control-0.5.0-1.fc44.noarch.rpm
+sudo dnf install ./anvil-control-0.6.0-1.fc44.noarch.rpm
 anvil-control
 ```
 
@@ -55,14 +56,15 @@ python3 -m unittest discover -s tests -v
 QT_QPA_PLATFORM=offscreen PYTHONPATH=. python3 tests/smoke_ui.py
 ```
 
-20 birim testi; gerçek sensör telemetrisiyle beş bölümlü arayüz testi. Smoke testi yalnızca mevcut sistemde çalışır. Bu bağımsız alpha proje ASUS/Fedora tarafından onaylanmamıştır. Anakart çizimi temsili şemadır, pin bağlantısı değildir. NVIDIA dışı GPU telemetrisi şu an yoktur. JSON tanılama raporunu paylaşmadan önce içeriğini inceleyin; raporda kart/BIOS, PCI ve sensör bilgileri bulunur.
+23 birim testi; gerçek sensör telemetrisiyle beş bölümlü arayüz testi. Smoke testi yalnızca mevcut sistemde çalışır. Bu bağımsız alpha proje ASUS/Fedora tarafından onaylanmamıştır. Anakart çizimi temsili şemadır, pin bağlantısı değildir. AMD GPU desteği sysfs fikstürleriyle sınandı; gerçek AMD donanımında henüz doğrulanmadı. JSON tanılama raporunu paylaşmadan önce içeriğini inceleyin; raporda kart/BIOS, PCI ve sensör bilgileri bulunur.
 
 ## English
 
-Local Fedora hardware monitoring and controls for ASUS systems. Board identity and available Linux sensor interfaces are discovered dynamically. Writable motherboard fan curves remain restricted to the physically validated PRIME H610M-K D4 / NCT6798 profile; monitoring may work on other ASUS boards without fan-write support. Experimental alpha.
+Local Fedora hardware monitoring and controls for ASUS systems. Board identity and available Linux sensor interfaces are discovered dynamically. NVIDIA NVML and experimental read-only AMDGPU sysfs telemetry are supported. Writable motherboard fan curves remain restricted to the physically validated PRIME H610M-K D4 / NCT6798 profile; monitoring may work on other ASUS boards without fan-write support. Experimental alpha.
 
 ## Kaynaklar
 
 - [Linux NCT6775/NCT6798 hwmon sürücüsü](https://www.kernel.org/doc/html/latest/hwmon/nct6775.html)
 - [ASUS PRIME H610M-K D4 özellikleri](https://www.asus.com/au/motherboards-components/motherboards/prime/prime-h610m-k-d4/techspec/)
 - [NVIDIA NVML](https://docs.nvidia.com/deploy/nvml-api/) · [OpenRGB](https://openrgb.org/)
+- [Linux AMDGPU telemetri arayüzleri](https://docs.kernel.org/gpu/amdgpu/thermal.html)

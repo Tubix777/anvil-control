@@ -1,5 +1,13 @@
 # Değişiklikler
 
+## 0.6.0 — 2026-09-22
+
+- AMD ekran kartlarında `amdgpu` sysfs üzerinden kullanım, sıcaklık, güç, VRAM ve fan RPM ölçümleri eklendi; arayüzler yoksa değerler boş kalır. Gerçek AMD donanımında henüz sınanmadı.
+- GPU fan devri RPM olarak gösterilir; RPM değeri yüzde gibi sunulmaz.
+- Ana sayfada yalnızca dönen fanlar listelenerek panel sadeleştirildi.
+- Fan kontrolü yalnızca eksiksiz PWM / PECI arayüzü olan doğrulanmış kanallarda açılır.
+- Başarı bildirimi, ayrıcalıklı yardımcının eşleşen geri okuma yanıtı doğrulanınca gösterilir.
+
 ## 0.5.0 — 2026-09-22
 
 - Gezinme yedi sayfadan beş bölüme sadeleştirildi; cihazlar ve tanılama birleştirildi.

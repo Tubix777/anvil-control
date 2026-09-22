@@ -26,6 +26,8 @@ def validate_curve(points):
 
 
 def locate(channel):
+    if 'asus' not in Path('/sys/class/dmi/id/board_vendor').read_text().strip().casefold():
+        raise ValueError('ASUS üretici kimliği gerekli.')
     if Path('/sys/class/dmi/id/board_name').read_text().strip() != 'PRIME H610M-K D4':
         raise ValueError('Bu yardımcı yalnızca PRIME H610M-K D4 üzerinde etkin.')
     if channel not in (1, 2):

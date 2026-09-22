@@ -16,7 +16,7 @@ from .backend import Monitor, set_profile
 from .widgets import Meter, FanRotor
 from .insights import ThermalAlerts, SensorStats
 from . import __version__
-from .fans import channels, supports_fan_write
+from .fans import channels, supports_fan_write, fan_result
 from .rgb import parse_devices
 
 STYLE = '''
@@ -390,8 +390,8 @@ class Window(QMainWindow):
         fv.addWidget(self.fan_readings)
         control_row = QHBoxLayout()
         self.fan_channel = QComboBox()
-        self.fan_channel.addItem('Kanal 1', 1)
-        self.fan_channel.addItem('Kanal 2', 2)
+        self.fan_channel.addItem('Kanal aranıyor…', None)
+        self.fan_channel.setEnabled(False)
         control_row.addWidget(self.fan_channel)
         self.fan_controls = []
         for title, action in [('Eğri düzenle', self.edit_curve), ('Tam hız', lambda: self.fan_action('full')),
@@ -728,17 +728,21 @@ class Window(QMainWindow):
 
     def fan_action(self, action, points=None):
         helper = '/usr/libexec/anvil-fan-helper'
+        channel = self.fan_channel.currentData()
+        if channel not in [item['channel'] for item in channels()]:
+            self.fan_feedback.setText('Seçili kanal güvenli fan kontrolü için uygun değil; arayüzü yeniden kontrol edin.')
+            return
         if not Path(helper).exists():
             self.fan_feedback.setText('Fan yardımcısı için güncel Anvil RPM paketini kurun.')
             return
         if self.hardware_busy():
             return
-        args = [helper, str(self.fan_channel.currentData()), action]
+        args = [helper, str(channel), action]
         if points is not None:
             args.append(json.dumps(points))
         self.fan_feedback.setText('Yetkilendirme / donanıma yazma bekleniyor…')
         def done(ok, out, err):
-            message = 'Fan ayarı uygulandı ve donanımdan geri okunarak doğrulandı.' if ok else 'Fan işlemi başarısız: ' + (err.strip() or 'Yetkilendirme iptal edildi veya yardımcı başlatılamadı.')
+            verified, message = fan_result(ok, out, err, action, channel)
             self.fan_feedback.setText(message)
             self.log_event(message)
         self.run_hardware('/usr/bin/pkexec', args, done)
@@ -814,29 +818,46 @@ class Window(QMainWindow):
         self.update_chart()
         stamp = datetime.fromtimestamp(d['time']).strftime('%H:%M:%S')
         self.status.setText(f'●  CANLI   •   Son ölçüm {stamp}   •   {self.monitor.identity["os"]}')
+        gpu_fan = (fmt(gpu.get('fan'), ' %') if gpu.get('fan') is not None
+                   else fmt(gpu.get('fan_rpm'), ' RPM'))
         self.summary.setText(f"{gpu.get('name', 'GPU telemetrisi kullanılamıyor')}\n"
-            f"GPU kullanımı {fmt(gpu.get('usage'), ' %')}   ·   Güç {fmt(gpu.get('power'), ' W', 1)}   ·   GPU fanı {fmt(gpu.get('fan'), ' %')}\n"
+            f"GPU kullanımı {fmt(gpu.get('usage'), ' %')}   ·   Güç {fmt(gpu.get('power'), ' W', 1)}   ·   GPU fanı {gpu_fan}\n"
             f"CPU frekansı {fmt(d['cpu_mhz'], ' MHz')}   ·   Açık kalma {float(d['uptime'])/3600:.1f} saat   ·   Disk / {d['disk_used']/2**30:.0f} / {d['disk_total']/2**30:.0f} GB")
         self.render_sensors()
         fans = [s for s in d['sensors'] if s['unit'] == 'RPM']
-        self.gpu_fan.setText('GPU FAN  ' + fmt(gpu.get('fan'), ' %'))
-        self.fan_readings.setText('  ·  '.join(f"{s['chip']} / {s['label']}: {s['value']:.0f} RPM" for s in fans))
+        spinning = [s for s in fans if s['value'] > 0]
+        self.gpu_fan.setText('GPU FAN  ' + gpu_fan)
+        self.fan_readings.setText('  ·  '.join(f"{s['chip']} / {s['label']}: {s['value']:.0f} RPM" for s in spinning)
+                                  or ('Algılanan fanların hiçbiri dönmüyor.' if fans else ''))
         self.fan_readings.setVisible(bool(fans))
         pwm = list(Path('/sys/class/hwmon').glob('hwmon*/pwm[0-9]'))
         self.monitor.identity['pwm'] = [str(p) for p in pwm]
         controllable = channels()
+        available_channels = [item['channel'] for item in controllable]
+        shown_channels = [self.fan_channel.itemData(i) for i in range(self.fan_channel.count())]
+        if available_channels != shown_channels:
+            selected = self.fan_channel.currentData()
+            self.fan_channel.clear()
+            if available_channels:
+                for channel in available_channels:
+                    self.fan_channel.addItem(f'Kanal {channel}', channel)
+                if selected in available_channels:
+                    self.fan_channel.setCurrentIndex(available_channels.index(selected))
+            else:
+                self.fan_channel.addItem('Uygun kanal yok', None)
         enabled = bool(controllable) and Path('/usr/libexec/anvil-fan-helper').exists() and not self.hardware_busy()
+        self.fan_channel.setEnabled(enabled)
         for b in self.fan_controls:
             b.setEnabled(enabled)
         if not controllable and not supports_fan_write(self.monitor.identity['board']):
             self.fan_feedback.setText('Bu ASUS kartta fan sensörleri okunabilir; güvenli yazma profili henüz doğrulanmadı. Kontroller kapalı.')
         elif not controllable:
-            self.fan_feedback.setText('Doğrulanmış kart algılandı, ancak NCT6798 fan arayüzü görünmüyor. nct6775 sürücüsünü kontrol edin.')
+            self.fan_feedback.setText('Doğrulanmış kartta güvenli fan kanalı bulunamadı. NCT6798, PWM modu ve PECI sıcaklık kaynağını kontrol edin.')
         elif not Path('/usr/libexec/anvil-fan-helper').exists():
             self.fan_feedback.setText('Fan denetleyicisi bulundu. Kontrol için güncel RPM paketini kurun.')
         elif self.fan_feedback.text() == 'Kontrol desteği denetleniyor…':
             self.fan_feedback.setText('Otomatik eğri / tam hız hazır. Kanal numaraları fiziksel CPU/kasa etiketi değildir.')
-        self.fan_status.setText(f'{len(fans)} fan devir sensörü • {len(pwm)} PWM arayüzü bulundu.' if fans or pwm
+        self.fan_status.setText(f'{len(spinning)} dönen fan / {len(fans)} devir sensörü • {len(pwm)} PWM arayüzü bulundu.' if fans or pwm
                                else 'Fan devir / PWM arayüzü görünmüyor. Mevcut kernel sürücülerinden fan kontrolü alınamıyor.')
         names = {'power-saver':'Enerji tasarrufu', 'balanced':'Dengeli', 'performance':'Performans'}
         self.active_profile.setText('Etkin profil: ' + names.get(d['profile'], d['profile'] or 'Servise erişilemiyor'))
@@ -847,7 +868,8 @@ class Window(QMainWindow):
         self.diagnostics.setPlainText('\n\n'.join([
             'SICAKLIKLAR\n' + f"{len(d['sensors'])} sensör okunuyor.",
             'FAN KONTROLÜ\n' + self.fan_status.text() + '\n' + self.fan_feedback.text(),
-            'GPU\n' + (gpu.get('name', '') + ' • NVIDIA NVML ile okunuyor.' if gpu else 'NVML telemetrisi alınamadı. Donanım ekranından sürücüyü inceleyin.'),
+            'GPU\n' + (gpu.get('name', '') + ' • ' + gpu.get('source', 'NVIDIA NVML') + ' ile okunuyor.'
+                       if gpu else 'GPU telemetrisi alınamadı. Donanım ekranından sürücüyü inceleyin.'),
             'GÜÇ PROFİLLERİ\n' + (', '.join(available) if available else 'Güç profili servisine erişilemiyor.'),
             'RGB\n' + self.rgb_status.text(),
             'KAPSAM\nBu rapor yalnızca mevcut sistemde görünür arayüzleri gösterir. Bir arayüzün eksik olması donanımın kesinlikle desteklenmediği anlamına gelmez.'

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from .backend import read, number
 
@@ -13,17 +14,49 @@ def supports_fan_write(board):
     return board in FAN_PROFILES
 
 
-def channels():
+def fan_result(ok, output, error, action, channel):
+    """Report success only for a matching, read-back-verified helper response."""
+    if not ok:
+        return False, 'Fan işlemi başarısız: ' + (error.strip() or 'Yetkilendirme iptal edildi veya yardımcı başlatılamadı.')
+    try:
+        result = json.loads(output)
+    except (TypeError, ValueError):
+        return False, 'Fan yardımcısından geçerli doğrulama yanıtı alınamadı.'
+    if (not isinstance(result, dict) or result.get('ok') is not True
+            or result.get('action') != action or result.get('channel') != channel
+            or not isinstance(result.get('verified'), dict) or not result['verified']):
+        return False, 'Fan yardımcısının geri okuma yanıtı uyuşmuyor.'
+    verified = result['verified']
+    stem = f'pwm{channel}'
+    expected = {stem + '_enable'} | {f'{stem}_auto_point{i}_{suffix}'
+                                     for i in range(1, 6) for suffix in ('temp', 'pwm')}
+    if (set(verified) != expected or any(type(value) is not int for value in verified.values())
+            or (action == 'curve' and verified[stem + '_enable'] != 5)
+            or (action == 'full' and verified[stem + '_enable'] != 0)):
+        return False, 'Fan ayarının geri okuması eksik veya beklenen modda değil.'
+    return True, 'Fan ayarı uygulandı ve donanımdan geri okunarak doğrulandı.'
+
+
+def channels(root=Path('/sys/class/hwmon'), board=None):
     found = []
-    board = read('/sys/class/dmi/id/board_name')
+    board = board if board is not None else read('/sys/class/dmi/id/board_name')
     profile = FAN_PROFILES.get(board)
     if not profile:
         return found
-    for hw in Path('/sys/class/hwmon').glob('hwmon*'):
+    for hw in root.glob('hwmon*'):
         if read(hw/'name') != profile['controller']:
             continue
         for n in profile['channels']:
-            if (hw/f'pwm{n}_enable').exists():
+            stem = f'pwm{n}'
+            required = [f'{stem}_{suffix}' for suffix in ('enable', 'mode', 'temp_sel')]
+            required += [f'{stem}_auto_point{i}_{suffix}' for i in range(1, 6)
+                         for suffix in ('temp', 'pwm')]
+            source = read(hw/f'{stem}_temp_sel')
+            if (all((hw/name).exists() for name in required) and source.isdecimal()
+                    and 'PECI' in read(hw/f'temp{source}_label')
+                    and number(hw/f'temp{source}_input') is not None
+                    and read(hw/f'{stem}_mode') == '1'
+                    and read(hw/f'{stem}_enable') in ('0', '5')):
                 found.append({'channel':n, 'rpm':number(hw/f'fan{n}_input'),
                               'mode':read(hw/f'pwm{n}_enable'), 'duty':number(hw/f'pwm{n}', 2.55),
                               'points':[[number(hw/f'pwm{n}_auto_point{i}_temp', 1000),

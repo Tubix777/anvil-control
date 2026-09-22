@@ -81,6 +81,7 @@ def check():
         w.set_motion(True)
         w.rotor.set_speed((w.latest['gpu'] or {}).get('fan'))
         QTest.qWait(900)
+        w.update_data(w.latest)
         assert w.fan_status.isVisible(), 'Fan panel must be on home page'
         assert 'GPU FAN' in w.gpu_fan.text()
         w.grab().save(str(Path(__file__).resolve().parents[1] / 'docs' / 'overview.png'))

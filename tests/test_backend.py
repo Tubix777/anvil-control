@@ -1,13 +1,43 @@
 import tempfile
 import unittest
+import tempfile
 from pathlib import Path
 from unittest.mock import patch
 from subprocess import CompletedProcess, TimeoutExpired
-from anvil.backend import sensors, number, set_profile, property_value, cpu_temperature, is_asus_vendor
+from anvil.backend import sensors, number, set_profile, property_value, cpu_temperature, is_asus_vendor, AmdGpu
 from anvil.fans import supports_fan_write
 
 
 class BackendTests(unittest.TestCase):
+    def test_amdgpu_sysfs_telemetry_and_missing_metrics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            driver = root/'drivers'/'amdgpu'
+            driver.mkdir(parents=True)
+            device = root/'drm'/'card0'/'device'
+            device.mkdir(parents=True)
+            (device/'driver').symlink_to(driver, target_is_directory=True)
+            (device/'gpu_busy_percent').write_text('42')
+            (device/'mem_info_vram_total').write_text('8192')
+            (device/'mem_info_vram_used').write_text('2048')
+            hw = device/'hwmon'/'hwmon0'
+            hw.mkdir(parents=True)
+            for name, value in [('name', 'amdgpu'), ('temp1_input', '61000'),
+                                ('power1_average', '56000000'), ('fan1_input', '1250')]:
+                (hw/name).write_text(value)
+            gpu = AmdGpu(root/'drm').sample()
+            self.assertEqual(gpu['temperature'], 61)
+            self.assertEqual(gpu['usage'], 42)
+            self.assertEqual(gpu['power'], 56)
+            self.assertEqual(gpu['fan_rpm'], 1250)
+            self.assertEqual(gpu['memory_total'], 8192)
+            self.assertNotIn('fan', gpu)  # RPM must not be mislabeled as percent.
+            (device/'gpu_busy_percent').write_text('999')
+            (device/'mem_info_vram_used').write_text('99999')
+            gpu = AmdGpu(root/'drm').sample()
+            self.assertNotIn('usage', gpu)
+            self.assertNotIn('memory_used', gpu)
+
     def test_intel_and_amd_cpu_sensor_drivers(self):
         readings = [
             {'chip':'coretemp', 'unit':'°C', 'value':44.0},

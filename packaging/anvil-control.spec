@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.5.0
+Version:        0.6.0
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -41,6 +41,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Tue Sep 22 2026 Anvil contributors - 0.6.0-1
+- Add read-only AMDGPU sysfs telemetry and clearer GPU fan units.
+- Offer only complete verified fan channels and validate helper readback responses.
+- Simplify home fan summary by listing spinning fans.
 * Tue Sep 22 2026 Anvil contributors - 0.5.0-1
 - Simplify navigation and combine device inventory, RGB, and diagnostics.
 - Generalize DMI identification and Intel/AMD CPU temperature discovery.

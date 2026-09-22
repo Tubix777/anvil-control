@@ -1,10 +1,12 @@
 import importlib.machinery
 import importlib.util
+import json
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 from anvil.rgb import parse_devices
+from anvil.fans import fan_result, channels
 
 path = Path(__file__).resolve().parents[1]/'packaging/anvil-fan-helper'
 loader = importlib.machinery.SourceFileLoader('fan_helper', str(path))
@@ -15,6 +17,38 @@ CURVE = [[30, 50], [45, 60], [60, 75], [75, 100], [85, 100]]
 
 
 class FanTests(unittest.TestCase):
+    def test_only_complete_peci_pwm_channel_is_offered(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hw = root/'hwmon0'
+            hw.mkdir()
+            (hw/'name').write_text('nct6798')
+            for name, value in [('pwm1_enable', '5'), ('pwm1_mode', '1'),
+                                ('pwm1_temp_sel', '8'), ('temp8_label', 'PECI Agent 0'),
+                                ('temp8_input', '40000')]:
+                (hw/name).write_text(value)
+            for i in range(1, 6):
+                (hw/f'pwm1_auto_point{i}_temp').write_text(str(i*10000))
+                (hw/f'pwm1_auto_point{i}_pwm').write_text(str(i*40))
+            self.assertEqual([item['channel'] for item in channels(root, 'PRIME H610M-K D4')], [1])
+            (hw/'temp8_label').write_text('CPUTIN')
+            self.assertEqual(channels(root, 'PRIME H610M-K D4'), [])
+            (hw/'temp8_label').write_text('PECI Agent 0')
+            (hw/'pwm1_auto_point5_temp').unlink()
+            self.assertEqual(channels(root, 'PRIME H610M-K D4'), [])
+            self.assertEqual(channels(root, 'OTHER BOARD'), [])
+
+    def test_ui_accepts_only_matching_verified_helper_result(self):
+        fields = {'pwm1_enable': 0}
+        for i in range(1, 6):
+            fields[f'pwm1_auto_point{i}_temp'] = i*10000
+            fields[f'pwm1_auto_point{i}_pwm'] = i*50
+        response = {'ok': True, 'action': 'full', 'channel': 1, 'verified': fields}
+        self.assertTrue(fan_result(True, json.dumps(response), '', 'full', 1)[0])
+        self.assertFalse(fan_result(True, json.dumps(response), '', 'curve', 1)[0])
+        self.assertFalse(fan_result(True, '{}', '', 'full', 1)[0])
+        self.assertFalse(fan_result(False, '', 'permission denied', 'full', 1)[0])
+
     def test_validation(self):
         self.assertEqual(helper.validate_curve(CURVE), CURVE)
         for invalid in [[], [[30, 0]]*5, [[30, 50], [20, 60], [60, 75], [75, 100], [85, 100]],
