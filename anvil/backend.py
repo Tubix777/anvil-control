@@ -30,6 +30,19 @@ def number(path, divisor=1):
         return None
 
 
+def cpu_temperature(readings):
+    """Return the hottest reading from known CPU temperature drivers only."""
+    cpu_chips = {'coretemp', 'k10temp', 'zenpower'}
+    values = [s['value'] for s in readings
+              if s['unit'] == '°C' and s['chip'].casefold() in cpu_chips]
+    return max(values) if values else None
+
+
+def is_asus_vendor(vendor):
+    """Recognize DMI ASUS and ASUSTeK spellings without guessing from model text."""
+    return 'asus' in (vendor or '').casefold()
+
+
 def sensors(root=Path('/sys/class/hwmon')):
     result = []
     for hw in sorted(root.glob('hwmon*')):
@@ -123,8 +136,10 @@ class Monitor:
         osdata = dict(line.split('=', 1) for line in read('/etc/os-release').splitlines() if '=' in line)
         cpu = next((x.split(':', 1)[1].strip() for x in read('/proc/cpuinfo').splitlines()
                     if x.startswith('model name')), 'Bilinmiyor')
-        return dict(board=read('/sys/class/dmi/id/board_name', 'Bilinmiyor'),
-                    vendor=read('/sys/class/dmi/id/board_vendor'),
+        vendor = read('/sys/class/dmi/id/board_vendor')
+        board = read('/sys/class/dmi/id/board_name', 'Bilinmiyor')
+        return dict(board=board,
+                    vendor=vendor, asus=is_asus_vendor(vendor),
                     bios=read('/sys/class/dmi/id/bios_version'),
                     bios_date=read('/sys/class/dmi/id/bios_date'),
                     os=osdata.get('PRETTY_NAME', platform.system()).strip('"'),
@@ -146,9 +161,9 @@ class Monitor:
             key, value = line.split(':', 1)
             mem[key] = int(value.strip().split()[0]) * 1024
         ss = sensors()
-        temps = [s['value'] for s in ss if s['chip'] == 'coretemp' and s['unit'] == '°C']
+        cpu_temp = cpu_temperature(ss)
         disk = shutil.disk_usage('/')
-        return dict(time=time.time(), cpu_usage=usage, cpu_temp=max(temps) if temps else None,
+        return dict(time=time.time(), cpu_usage=usage, cpu_temp=cpu_temp,
                     cpu_mhz=number('/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq', 1000),
                     memory_used=mem['MemTotal']-mem['MemAvailable'], memory_total=mem['MemTotal'],
                     disk_used=disk.used, disk_total=disk.total,

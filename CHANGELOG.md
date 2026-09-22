@@ -1,5 +1,13 @@
 # Değişiklikler
 
+## 0.5.0 — 2026-09-22
+
+- Gezinme yedi sayfadan beş bölüme sadeleştirildi; cihazlar ve tanılama birleştirildi.
+- H610M-K'ya özgü bileşen çizimi, anakart bağımsız temsili şema oldu.
+- ASUS kimliği DMI üretici bilgisinden algılanıyor; genel hwmon sensörleri korunuyor.
+- Intel coretemp ve AMD k10temp / zenpower işlemci sıcaklıkları destekleniyor.
+- Yazılabilir fan kontrolü yalnızca fiziksel olarak doğrulanmış anakart profiline bağlı.
+
 ## 0.4.0 — 2026-09-22
 
 - H610M-K D4 / NCT6798 kanal 1 ve 2 için gerçek donanım fan kontrolü.

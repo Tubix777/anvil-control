@@ -3,10 +3,30 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from subprocess import CompletedProcess, TimeoutExpired
-from anvil.backend import sensors, number, set_profile, property_value
+from anvil.backend import sensors, number, set_profile, property_value, cpu_temperature, is_asus_vendor
+from anvil.fans import supports_fan_write
 
 
 class BackendTests(unittest.TestCase):
+    def test_intel_and_amd_cpu_sensor_drivers(self):
+        readings = [
+            {'chip':'coretemp', 'unit':'°C', 'value':44.0},
+            {'chip':'k10temp', 'unit':'°C', 'value':51.5},
+            {'chip':'acpitz', 'unit':'°C', 'value':90.0},
+        ]
+        self.assertEqual(cpu_temperature(readings), 51.5)
+        self.assertIsNone(cpu_temperature([readings[2]]))
+
+    def test_asus_vendor_detection_is_based_on_dmi_vendor(self):
+        self.assertTrue(is_asus_vendor('ASUSTeK COMPUTER INC.'))
+        self.assertTrue(is_asus_vendor('ASUS'))
+        self.assertFalse(is_asus_vendor('Gigabyte Technology Co., Ltd.'))
+        self.assertFalse(is_asus_vendor(''))
+
+    def test_fan_writes_are_scoped_to_verified_board_profiles(self):
+        self.assertTrue(supports_fan_write('PRIME H610M-K D4'))
+        self.assertFalse(supports_fan_write('ROG STRIX X670E-E GAMING WIFI'))
+
     def test_missing_measurement_is_not_zero(self):
         self.assertIsNone(number('/path/that/does/not/exist'))
 

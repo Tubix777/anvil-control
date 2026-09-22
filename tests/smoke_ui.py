@@ -52,7 +52,10 @@ def check():
         assert len(w.history) == before
         assert not w.rotor.timer.isActive()
         w.toggle_pause()
-        for n in range(7):
+        assert len(w.nav) == 5, 'Navigation should stay focused on five sections'
+        assert w.monitor.identity['asus'], 'DMI should identify the ASUS test board'
+        assert len(w.diagnostics.toPlainText()) > 0
+        for n in range(5):
             w.navigate(n)
             app.processEvents()
             assert w.stack.currentIndex() == n
@@ -61,7 +64,7 @@ def check():
             metrics = Path(directory) / 'metrics.csv'
             with patch('anvil.app.QFileDialog.getSaveFileName', return_value=(str(report), '')):
                 w.export_json()
-            assert json.loads(report.read_text())['hardware']['board'] == 'PRIME H610M-K D4'
+            assert json.loads(report.read_text())['hardware']['board'] == w.monitor.identity['board']
             with patch('anvil.app.QFileDialog.getSaveFileName', return_value=(str(metrics), '')):
                 w.export_csv()
             with metrics.open() as stream:
@@ -80,8 +83,8 @@ def check():
         QTest.qWait(900)
         assert w.fan_status.isVisible(), 'Fan panel must be on home page'
         assert 'GPU FAN' in w.gpu_fan.text()
-        w.grab().save(str(Path(__file__).resolve().parents[2] / 'anvil-preview.png'))
-        print('PASS: telemetry, seven pages, search, extrema reset, chart selection, pause, animations, JSON/CSV and screenshot')
+        w.grab().save(str(Path(__file__).resolve().parents[1] / 'docs' / 'overview.png'))
+        print('PASS: telemetry, five sections, search, extrema reset, chart selection, pause, animations, JSON/CSV and screenshot')
     except Exception as e:
         errors.append(e)
     finally:

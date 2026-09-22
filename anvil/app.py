@@ -16,7 +16,7 @@ from .backend import Monitor, set_profile
 from .widgets import Meter, FanRotor
 from .insights import ThermalAlerts, SensorStats
 from . import __version__
-from .fans import channels
+from .fans import channels, supports_fan_write
 from .rgb import parse_devices
 
 STYLE = '''
@@ -109,7 +109,7 @@ class Motherboard(QWidget):
                 p.setFont(f)
                 p.setPen(QColor('#ffe178' if accent else '#c3c3af'))
                 p.drawText(QRectF(x, y, w, h), Qt.AlignmentFlag.AlignCenter, title)
-        block(116, 43, 87, 80, 'LGA 1700\n' + fmt(self.temperature, ' °C'), True)
+        block(116, 43, 87, 80, 'CPU\n' + fmt(self.temperature, ' °C'), True)
         if self.pulse > 0:
             color = QColor('#ffd438')
             color.setAlphaF(self.pulse * 0.7)
@@ -117,7 +117,9 @@ class Motherboard(QWidget):
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawRoundedRect(QRectF(111, 38, 97, 90), 6, 6)
         for x in [225, 244]:
-            block(x, 32, 11, 110, '', True)
+            block(x, 32, 14, 110, '', True)
+        p.setPen(QColor('#c3c3af'))
+        p.drawText(QRectF(218, 11, 55, 16), Qt.AlignmentFlag.AlignCenter, 'RAM')
         block(278, 48, 10, 72)
         for y in [29, 62, 96]:
             block(43, y, 32, 25, 'I/O')
@@ -125,10 +127,10 @@ class Motherboard(QWidget):
             block(x, 22, 11, 10)
         for y in range(49, 121, 18):
             block(89, y, 13, 12)
-        block(94, 150, 114, 10, 'M.2')
-        block(81, 174, 158, 14, 'PCIe 4.0 ×16', True)
-        block(81, 205, 66, 11, 'PCIe ×1')
-        block(223, 198, 38, 26, 'H610')
+        block(94, 150, 114, 10, 'STORAGE')
+        block(81, 174, 158, 14, 'PCIe', True)
+        block(81, 205, 66, 11, 'EXPANSION')
+        block(223, 198, 38, 26, 'CHIP')
         block(274, 175, 20, 44, 'S')
         for x, y in [(62, 19), (288, 19), (62, 227), (288, 227)]:
             p.setPen(QPen(QColor('#82794d'), 2))
@@ -240,7 +242,7 @@ class ProfileWorker(QThread):
 class Window(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Anvil Control • ASUS masaüstü kontrol merkezi')
+        self.setWindowTitle('Anvil Control • ASUS')
         self.resize(1280, 1000)
         self.setMinimumSize(940, 680)
         self.settings = QSettings('Anvil', 'AnvilControl')
@@ -264,17 +266,17 @@ class Window(QMainWindow):
         horizontal.setContentsMargins(0, 0, 0, 0)
         side = QFrame()
         side.setObjectName('sidebar')
-        side.setFixedWidth(228)
+        side.setFixedWidth(196)
         sl = QVBoxLayout(side)
-        sl.setContentsMargins(18, 28, 18, 20)
+        sl.setContentsMargins(15, 24, 15, 18)
         sl.addWidget(label('ANVIL', 'brand'))
-        sl.addWidget(label('CONTROL CENTER\n0.4 ALPHA', 'muted'))
-        sl.addSpacing(30)
+        sl.addWidget(label('ASUS  /  FEDORA', 'muted'))
+        sl.addSpacing(22)
         self.stack = QStackedWidget()
         self.nav = []
-        names = ['Genel bakış', 'Sensörler', 'Güç profilleri', 'Aydınlatma', 'Donanım', 'Tanılama', 'Ayarlar']
+        names = ['Genel bakış', 'Sensörler', 'Güç', 'Cihazlar', 'Ayarlar']
         for i, name in enumerate(names):
-            b = QPushButton(f'{i+1:02}   {name}')
+            b = QPushButton(name)
             b.setObjectName('nav')
             b.setCheckable(True)
             b.clicked.connect(lambda checked=False, n=i: self.navigate(n))
@@ -282,7 +284,7 @@ class Window(QMainWindow):
             sl.addWidget(b)
         sl.addStretch()
         sl.addWidget(label(self.monitor.identity['board'], 'section'))
-        sl.addWidget(label('Yerel veriler · Bulut bağlantısı yok', 'muted'))
+        sl.addWidget(label('ASUS algılandı' if self.monitor.identity['asus'] else 'ASUS dışı · genel izleme', 'muted'))
         horizontal.addWidget(side)
         horizontal.addWidget(self.stack, 1)
         self.build_overview()
@@ -351,7 +353,7 @@ class Window(QMainWindow):
         name = label(self.monitor.identity['board'], 'section')
         name.setAlignment(Qt.AlignmentFlag.AlignCenter)
         bv.addWidget(name)
-        note = label('ASUS  /  Temsili bileşen şeması', 'muted')
+        note = label('Temsili şema · pin bağlantısı değildir', 'muted')
         note.setAlignment(Qt.AlignmentFlag.AlignCenter)
         bv.addWidget(note)
         top.addWidget(board, 1)
@@ -459,7 +461,8 @@ class Window(QMainWindow):
         l.addStretch()
 
     def build_rgb(self):
-        l = self.page('Aydınlatma', 'Bağlı donanıma göre RGB desteği')
+        l = self.page('Cihazlar', 'Algılanan donanım ve isteğe bağlı RGB kontrolü')
+        self.device_layout = l
         l.addWidget(label('OpenRGB tarafından algılanan aygıtlar', 'section'))
         l.addWidget(label('Sadece algılanan cihaz ve desteklediği modlar seçilebilir. Anakartın RGB başlığı için yazılım desteği ayrıca gereklidir.', 'muted'))
         self.rgb_devices = QComboBox()
@@ -483,7 +486,9 @@ class Window(QMainWindow):
         l.addStretch()
 
     def build_hardware(self):
-        l = self.page('Donanım envanteri', 'Seri numarası ve makine kimliği toplanmaz')
+        l = self.device_layout
+        l.addWidget(label('Donanım', 'section'))
+        l.addWidget(label('Seri numarası ve makine kimliği okunmaz.', 'muted'))
         t = table(['Bileşen', 'Bilgi'])
         info = self.monitor.identity
         rows(t, [(title, info[key]) for key, title in [('board', 'Anakart'), ('vendor', 'Üretici'),
@@ -498,7 +503,9 @@ class Window(QMainWindow):
         l.addWidget(text)
 
     def build_diagnostics(self):
-        l = self.page('Tanılama', 'Eksik desteği görünür kıl • Raporu paylaşmadan önce incele')
+        l = self.device_layout
+        l.addWidget(label('Durum ve tanılama', 'section'))
+        l.addWidget(label('Eksik desteği görünür kıl · Raporu paylaşmadan önce incele.', 'muted'))
         self.diagnostics = QTextEdit()
         self.diagnostics.setReadOnly(True)
         self.diagnostics.setMinimumHeight(350)
@@ -544,7 +551,10 @@ class Window(QMainWindow):
         l.addWidget(self.threshold)
         l.addWidget(label('Bu eşik kişisel bir bildirim tercihidir; donanımın güvenli sıcaklık sınırı değildir. Tekrarlanan uyarı için sıcaklığın önce eşiğin 5 °C altına düşmesi gerekir. Duraklatıldığında uyarılar da durur.', 'muted'))
         l.addWidget(label('Grafikte son 120 ölçüm; dışa aktarma için bellekte son 3.600 ölçüm tutulur. Uygulama kapanınca geçmiş silinir. Yalnızca dışa aktardığınız kayıtlar diske yazılır.', 'muted'))
-        l.addWidget(label(f'Anvil Control {__version__} • Alpha\nBağımsız bir proje; ASUS tarafından geliştirilmemiştir.\nFan kontrolü H610M-K D4 / NCT6798 ile sınırlıdır. RGB desteği OpenRGB aygıt algılamasına bağlıdır.', 'muted'))
+        fan_scope = ('Fan yazma: bu sürümde yalnızca doğrulanmış PRIME H610M-K D4.'
+                     if supports_fan_write(self.monitor.identity['board'])
+                     else 'Fan yazma, her anakart için ayrı doğrulama gerektirir ve burada kapalıdır.')
+        l.addWidget(label(f'Anvil Control {__version__} • Alpha\nASUS tarafından geliştirilmemiş bağımsız proje.\n{fan_scope}\nRGB desteği algılanan OpenRGB aygıtlarına bağlıdır.', 'muted'))
         l.addStretch()
 
     def navigate(self, index):
@@ -600,7 +610,7 @@ class Window(QMainWindow):
             if self.tray.isVisible():
                 self.tray.showMessage('Anvil · Sıcaklık uyarısı', event, QSystemTrayIcon.MessageIcon.Warning)
         active = sorted(self.alerts.active)
-        self.alert_banner.setText('SICAKLIK UYARISI  ·  ' + ', '.join(active) + ' — Tanılama ekranını inceleyin.')
+        self.alert_banner.setText('SICAKLIK UYARISI  ·  ' + ', '.join(active) + ' — Cihazlar → Durum bölümünü inceleyin.')
         self.alert_banner.setVisible(bool(active))
 
     def toggle_pause(self):
@@ -818,8 +828,10 @@ class Window(QMainWindow):
         enabled = bool(controllable) and Path('/usr/libexec/anvil-fan-helper').exists() and not self.hardware_busy()
         for b in self.fan_controls:
             b.setEnabled(enabled)
-        if not controllable:
-            self.fan_feedback.setText('Desteklenen fan denetleyicisi yok. H610M-K D4 için nct6775 sürücüsü gerekli.')
+        if not controllable and not supports_fan_write(self.monitor.identity['board']):
+            self.fan_feedback.setText('Bu ASUS kartta fan sensörleri okunabilir; güvenli yazma profili henüz doğrulanmadı. Kontroller kapalı.')
+        elif not controllable:
+            self.fan_feedback.setText('Doğrulanmış kart algılandı, ancak NCT6798 fan arayüzü görünmüyor. nct6775 sürücüsünü kontrol edin.')
         elif not Path('/usr/libexec/anvil-fan-helper').exists():
             self.fan_feedback.setText('Fan denetleyicisi bulundu. Kontrol için güncel RPM paketini kurun.')
         elif self.fan_feedback.text() == 'Kontrol desteği denetleniyor…':
