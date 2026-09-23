@@ -1,5 +1,10 @@
 # Değişiklikler
 
+## 0.9.0 — 2026-09-23
+
+- Tema seçimi her sayfada görünen sol menüye taşındı; Ayarlar seçimiyle eşzamanlı çalışır.
+- Fan işlemleri için yalnızca paketli, kısıtlı yardımcıya ait kısa süreli yönetici yetkisi eklenerek ardışık mod değişikliklerinde tekrar şifre sorulması azaltıldı. İlk işlem yine yönetici onayı ister; yetki süresi dolunca tekrar sorulur.
+
 ## 0.8.0 — 2026-09-23
 
 - Farklı ASUS anakartlarında mevcut Linux sensör, GPU, güç profili ve fan arayüzlerini otomatik gösteren destek tablosu eklendi. Doğrulanmamış modellerde izleme açık, fan yazma kapalıdır.

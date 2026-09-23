@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.8.0
+Version:        0.9.0
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -30,6 +30,7 @@ install -Dpm 0755 packaging/anvil-control %{buildroot}%{_bindir}/anvil-control
 install -Dpm 0644 packaging/io.anvil.Control.desktop %{buildroot}%{_datadir}/applications/io.anvil.Control.desktop
 install -Dpm 0644 packaging/io.anvil.Control.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/io.anvil.Control.svg
 install -Dpm 0755 packaging/anvil-fan-helper %{buildroot}%{_libexecdir}/anvil-fan-helper
+install -Dpm 0644 packaging/io.anvil.Control.policy %{buildroot}%{_datadir}/polkit-1/actions/io.anvil.Control.policy
 install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %files
@@ -40,9 +41,13 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_datadir}/applications/io.anvil.Control.desktop
 %{_datadir}/icons/hicolor/scalable/apps/io.anvil.Control.svg
 %{_libexecdir}/anvil-fan-helper
+%{_datadir}/polkit-1/actions/io.anvil.Control.policy
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Wed Sep 23 2026 Anvil contributors - 0.9.0-1
+- Show the persistent theme chooser in the sidebar on every page.
+- Retain admin authorization briefly for the restricted fan helper.
 * Wed Sep 23 2026 Anvil contributors - 0.8.0-1
 - Report detected monitoring and write capabilities across ASUS boards.
 - Add Copper, Violet, Graphite and Daylight themes.

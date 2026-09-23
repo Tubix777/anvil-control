@@ -54,12 +54,17 @@ class ThemeTests(unittest.TestCase):
                 self.assertGreaterEqual(index, 0)
                 first.theme_combo.setCurrentIndex(index)
                 self.assertEqual(settings.value('theme'), 'night')
+                self.assertEqual(first.quick_theme.currentData(), 'night')
                 self.assertEqual(first.board.theme, THEMES['night'])
                 self.assertEqual(first.chart.theme, THEMES['night'])
                 self.assertEqual(first.rotor.accent_color, THEMES['night']['accent'])
                 self.assertTrue(all(m.accent_color == THEMES['night']['accent']
                                     for m in first.meters.values()))
                 self.assertEqual(app.styleSheet(), style_for_theme('night'))
+                first.quick_theme.setCurrentIndex(first.quick_theme.findData('daylight'))
+                self.assertEqual(first.theme_combo.currentData(), 'daylight')
+                self.assertEqual(settings.value('theme'), 'daylight')
+                first.theme_combo.setCurrentIndex(index)
             finally:
                 first.quit_app()
             with patch('anvil.app.QSettings', return_value=settings):
@@ -67,6 +72,7 @@ class ThemeTests(unittest.TestCase):
             try:
                 self.assertEqual(reopened.theme_key, 'night')
                 self.assertEqual(reopened.theme_combo.currentData(), 'night')
+                self.assertEqual(reopened.quick_theme.currentData(), 'night')
                 self.assertEqual(app.styleSheet(), style_for_theme('night'))
             finally:
                 reopened.quit_app()

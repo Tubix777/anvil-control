@@ -7,7 +7,7 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSettings, QProcess, QRectF, QPointF, QVariantAnimation, QEasingCurve
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSettings, QProcess, QRectF, QPointF, QVariantAnimation, QEasingCurve, QSignalBlocker
 from PySide6.QtGui import QColor, QPainter, QPen, QPainterPath, QIcon, QFont, QFontDatabase
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QLabel, QPushButton, QFrame, QStackedWidget, QGridLayout, QTableWidget, QTableWidgetItem,
@@ -407,6 +407,15 @@ class Window(QMainWindow):
             b.clicked.connect(lambda checked=False, n=i: self.navigate(n))
             self.nav.append(b)
             sl.addWidget(b)
+        sl.addSpacing(18)
+        sl.addWidget(label('TEMA SEÇ', 'accent'))
+        self.quick_theme = QComboBox()
+        self.quick_theme.setAccessibleName('Tema seçimi')
+        for key, name in THEME_NAMES.items():
+            self.quick_theme.addItem(name, key)
+        self.quick_theme.setCurrentIndex(self.quick_theme.findData(self.theme_key))
+        self.quick_theme.currentIndexChanged.connect(lambda: self.apply_theme(self.quick_theme.currentData()))
+        sl.addWidget(self.quick_theme)
         sl.addStretch()
         sl.addWidget(label(self.monitor.identity['board'], 'section'))
         sl.addWidget(label('ASUS algılandı' if self.monitor.identity['asus'] else 'ASUS dışı · genel izleme', 'muted'))
@@ -542,6 +551,7 @@ class Window(QMainWindow):
         fv.addLayout(preset_row)
         self.preset_info = label('', 'muted')
         fv.addWidget(self.preset_info)
+        fv.addWidget(label('İlk fan değişikliğinde yönetici onayı gerekir; kısa süre içindeki sonraki değişikliklerde onay hatırlanır.', 'muted'))
         self.update_preset_info()
         self.fan_feedback = label('Kontrol desteği denetleniyor…', 'muted')
         fv.addWidget(self.fan_feedback)
@@ -679,7 +689,7 @@ class Window(QMainWindow):
         self.theme_combo.setCurrentIndex(self.theme_combo.findData(self.theme_key))
         self.theme_combo.currentIndexChanged.connect(lambda: self.apply_theme(self.theme_combo.currentData()))
         l.addWidget(self.theme_combo)
-        l.addWidget(label('Tema anında uygulanır ve sonraki açılışta korunur.', 'muted'))
+        l.addWidget(label('Tema sol menüdeki TEMA SEÇ alanından da değiştirilebilir; tercih sonraki açılışta korunur.', 'muted'))
         l.addWidget(label('Yenileme aralığı', 'section'))
         combo = QComboBox()
         for seconds in [1, 2, 5, 10]:
@@ -717,6 +727,11 @@ class Window(QMainWindow):
         self.theme_key = resolve_theme(key)
         if persist:
             self.settings.setValue('theme', self.theme_key)
+        for selector in (self.quick_theme, self.theme_combo):
+            index = selector.findData(self.theme_key)
+            if selector.currentIndex() != index:
+                with QSignalBlocker(selector):
+                    selector.setCurrentIndex(index)
         colors = THEMES[self.theme_key]
         QApplication.instance().setStyleSheet(style_for_theme(self.theme_key))
         self.board.theme = colors

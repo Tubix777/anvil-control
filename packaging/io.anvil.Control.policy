@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+<policyconfig>
+  <vendor>Anvil Control</vendor>
+  <vendor_url>https://github.com/Tubix777/anvil-control</vendor_url>
+  <action id="io.anvil.Control.fan-control">
+    <description>Change verified ASUS motherboard fan settings</description>
+    <message>Authentication is required to change verified motherboard fan settings</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/anvil-fan-helper</annotate>
+  </action>
+</policyconfig>

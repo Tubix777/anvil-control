@@ -88,10 +88,12 @@ def check():
         assert w.preset_combo.count() == 3
         assert 'Sabit RPM değil' in w.preset_info.text()
         assert w.theme_combo.count() == len(THEMES) == 7
+        assert w.quick_theme.isVisible(), 'Theme chooser should be visible in the sidebar'
         for key in THEMES:
-            w.theme_combo.setCurrentIndex(w.theme_combo.findData(key))
+            w.quick_theme.setCurrentIndex(w.quick_theme.findData(key))
             app.processEvents()
             assert w.board.theme == THEMES[key]
+            assert w.theme_combo.currentData() == key
         w.theme_combo.setCurrentIndex(w.theme_combo.findData('anvil'))
         app.processEvents()
         w.grab().save(str(Path(__file__).resolve().parents[1] / 'docs' / 'overview.png'))
