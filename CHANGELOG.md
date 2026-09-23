@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.11.0 — 2026-09-23
+
+- Anakartın temsili çizimi; CPU soketi, VRM, çift RAM yuvası, M.2, PCIe, SATA, yonga seti ve bağlantı ayrıntılarıyla yeniden tasarlandı. Yedi temanın renklerine uyarlanır; gerçek pin/bağlantı planı değildir.
+- Anakart izlerinde hareketli ışık, CPU çevresinde yumuşak vurgu ve grafikte yeni ölçüm halkası eklendi. Bunlar dekoratiftir; donanım devri ya da elektrik sinyali göstermez.
+- Hareketler yalnızca görünürken çalışır; Ayarlar’daki **Arayüz animasyonları** kapatılınca durur. Görsel davranış testleri eklendi.
+
 ## 0.10.0 — 2026-09-23
 
 - Doğrulanmış fan yardımcısı için etkin yerel oturumda şifresiz çalışma açıldı; fan modu değiştirmek artık yönetici onayı istemez.

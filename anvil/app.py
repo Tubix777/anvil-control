@@ -1,5 +1,6 @@
 import csv
 import json
+import math
 import re
 import sys
 import shutil
@@ -8,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSettings, QProcess, QRectF, QPointF, QVariantAnimation, QEasingCurve, QSignalBlocker
-from PySide6.QtGui import QColor, QPainter, QPen, QPainterPath, QIcon, QFont, QFontDatabase
+from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPen, QPainterPath, QIcon, QFont, QFontDatabase
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QLabel, QPushButton, QFrame, QStackedWidget, QGridLayout, QTableWidget, QTableWidgetItem,
     QHeaderView, QTextEdit, QFileDialog, QMessageBox, QComboBox, QSystemTrayIcon, QMenu,
@@ -170,17 +171,66 @@ def configure_style(app, theme=DEFAULT_THEME):
 
 class Motherboard(QWidget):
     """Original component diagram, not an electrical or pinout reference."""
+    TRACE_ROUTES = (
+        ((207, 101), (221, 101), (221, 172), (249, 172)),
+        ((125, 152), (125, 161), (208, 161), (208, 180), (255, 180)),
+        ((211, 69), (224, 69), (224, 40), (281, 40), (281, 91)),
+    )
+
     def __init__(self):
         super().__init__()
-        self.setMinimumSize(300, 210)
+        self.setMinimumSize(320, 220)
         self.setAccessibleName('Anakartın temsili bileşen şeması')
+        self.setToolTip('Temsili üstten görünüş. Işık hareketleri dekoratiftir; pin şeması veya gerçek sinyal akışı değildir.')
         self.temperature = None
         self.pulse = 0.0
+        self.phase = 0.0
         self.motion = True
         self.theme = THEMES[DEFAULT_THEME]
         self.animation = QVariantAnimation(self)
         self.animation.setDuration(800)
         self.animation.valueChanged.connect(self.animate)
+        self.timer = QTimer(self)
+        self.timer.setInterval(70)
+        self.timer.timeout.connect(self.tick)
+
+    @staticmethod
+    def trace_position(points, progress):
+        lengths = [math.hypot(b[0]-a[0], b[1]-a[1]) for a, b in zip(points, points[1:])]
+        remaining = (progress % 1.0) * sum(lengths)
+        for (a, b), length in zip(zip(points, points[1:]), lengths):
+            if remaining <= length:
+                fraction = remaining / length if length else 0
+                return QPointF(a[0] + (b[0]-a[0])*fraction, a[1] + (b[1]-a[1])*fraction)
+            remaining -= length
+        return QPointF(*points[-1])
+
+    def tick(self):
+        self.phase = (self.phase + 0.018) % 1.0
+        self.update()
+
+    def sync_motion(self):
+        if self.motion and self.isVisible():
+            self.timer.start()
+        else:
+            self.timer.stop()
+
+    def set_motion(self, enabled):
+        self.motion = enabled
+        self.sync_motion()
+        if not enabled:
+            self.animation.stop()
+            self.pulse = 0.0
+        self.update()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.sync_motion()
+
+    def hideEvent(self, event):
+        self.timer.stop()
+        self.animation.stop()
+        super().hideEvent(event)
 
     def animate(self, value):
         self.pulse = float(value)
@@ -202,51 +252,134 @@ class Motherboard(QWidget):
         scale = min(self.width()/350, self.height()/250)
         p.translate((self.width()-350*scale)/2, (self.height()-250*scale)/2)
         p.scale(scale, scale)
-        p.setBrush(QColor(colors['board_bg']))
-        p.setPen(QPen(QColor(colors['board_border']), 1.5))
-        p.drawRoundedRect(QRectF(51, 9, 248, 229), 8, 8)
-        p.setPen(QPen(QColor(colors['trace']), 1))
-        for i in range(7):
-            p.drawPolyline([QPointF(x, y)
-                            for x, y in [(130+i*6, 115), (130+i*6, 143+i*3), (217, 143+i*3)]])
-        def block(x, y, w, h, title='', accent=False):
-            p.setBrush(QColor(colors['block_accent'] if accent else colors['block']))
-            p.setPen(QPen(QColor(colors['block_accent_border'] if accent else colors['block_border']), 1))
-            p.drawRoundedRect(QRectF(x, y, w, h), 2, 2)
-            if title:
-                f = QFont(self.font())
-                f.setPixelSize(9)
-                f.setWeight(QFont.Weight.DemiBold)
-                p.setFont(f)
-                p.setPen(QColor(colors['block_accent_text'] if accent else colors['block_text']))
-                p.drawText(QRectF(x, y, w, h), Qt.AlignmentFlag.AlignCenter, title)
-        block(116, 43, 87, 80, 'CPU\n' + fmt(self.temperature, ' °C'), True)
-        if self.pulse > 0:
-            color = QColor(colors['accent'])
-            color.setAlphaF(self.pulse * 0.7)
-            p.setPen(QPen(color, 2))
+        def panel(x, y, w, h, fill, border, radius=3, width=1):
+            p.setBrush(QColor(fill))
+            p.setPen(QPen(QColor(border), width))
+            p.drawRoundedRect(QRectF(x, y, w, h), radius, radius)
+
+        def caption(text, x, y, w, h, size=8, color='block_text'):
+            font = QFont(self.font())
+            font.setPixelSize(size)
+            font.setWeight(QFont.Weight.DemiBold)
+            p.setFont(font)
+            p.setPen(QColor(colors[color]))
+            p.drawText(QRectF(x, y, w, h), Qt.AlignmentFlag.AlignCenter, text)
+
+        shadow = QColor(colors['accent'])
+        shadow.setAlpha(18)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(shadow)
+        p.drawRoundedRect(QRectF(14, 11, 322, 233), 15, 15)
+        board_fill = QLinearGradient(18, 8, 330, 240)
+        board_fill.setColorAt(0, QColor(colors['board_bg']).lighter(113))
+        board_fill.setColorAt(1, QColor(colors['board_bg']))
+        p.setBrush(board_fill)
+        p.setPen(QPen(QColor(colors['board_border']), 1.6))
+        p.drawRoundedRect(QRectF(18, 7, 314, 231), 12, 12)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        inner = QColor(colors['board_border'])
+        inner.setAlpha(65)
+        p.setPen(QPen(inner, 0.8))
+        p.drawRoundedRect(QRectF(23, 12, 304, 221), 9, 9)
+
+        for row in range(6):
+            for col in range(10):
+                p.setPen(Qt.PenStyle.NoPen)
+                dot = QColor(colors['trace'])
+                dot.setAlpha(105)
+                p.setBrush(dot)
+                p.drawEllipse(QRectF(69 + col*24, 48 + row*29, 1.5, 1.5))
+
+        for index, points in enumerate(self.TRACE_ROUTES):
+            poly = [QPointF(*point) for point in points]
+            trace = QColor(colors['trace'])
+            trace.setAlpha(210)
+            p.setPen(QPen(trace, 1.6))
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawRoundedRect(QRectF(111, 38, 97, 90), 6, 6)
-        for x in [225, 244]:
-            block(x, 32, 14, 110, '', True)
-        p.setPen(QColor(colors['block_text']))
-        p.drawText(QRectF(218, 11, 55, 16), Qt.AlignmentFlag.AlignCenter, 'RAM')
-        block(278, 48, 10, 72)
-        for y in [29, 62, 96]:
-            block(43, y, 32, 25, 'I/O')
-        for x in range(90, 207, 17):
-            block(x, 22, 11, 10)
-        for y in range(49, 121, 18):
-            block(89, y, 13, 12)
-        block(94, 150, 114, 10, 'STORAGE')
-        block(81, 174, 158, 14, 'PCIe', True)
-        block(81, 205, 66, 11, 'EXPANSION')
-        block(223, 198, 38, 26, 'CHIP')
-        block(274, 175, 20, 44, 'S')
-        for x, y in [(62, 19), (288, 19), (62, 227), (288, 227)]:
+            p.drawPolyline(poly)
+            if self.motion:
+                spot = self.trace_position(points, self.phase + index/3)
+                halo = QColor(colors['accent'])
+                halo.setAlpha(45)
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(halo)
+                p.drawEllipse(spot, 5, 5)
+                halo.setAlpha(210)
+                p.setBrush(halo)
+                p.drawEllipse(spot, 1.7, 1.7)
+
+        caption('ANVIL  /  BOARD VIEW', 45, 13, 131, 13, 8, 'block_accent_text')
+        caption('VRM', 72, 31, 27, 12, 7)
+        for x in range(104, 203, 17):
+            panel(x, 31, 12, 14, colors['block'], colors['block_border'], 2)
+            panel(x+2, 33, 8, 3, colors['block_accent'], colors['trace'], 1)
+        for y in range(60, 145, 18):
+            panel(75, y, 18, 14, colors['block'], colors['block_border'], 2)
+            panel(78, y+3, 12, 3, colors['block_accent'], colors['trace'], 1)
+
+        for y in (43, 75, 107):
+            panel(21, y, 36, 25, colors['block'], colors['block_border'], 3)
+            panel(25, y+5, 28, 15, colors['board_bg'], colors['hole_border'], 2)
+            caption('I/O', 27, y+6, 24, 13, 7)
+        for y in (52, 72, 92, 112, 132):
+            panel(61, y, 8, 10, colors['block_accent'], colors['block_border'], 1)
+
+        panel(104, 50, 109, 108, colors['block'], colors['block_border'], 8, 1.5)
+        panel(110, 56, 97, 96, colors['board_bg'], colors['hole_border'], 6)
+        for x in range(118, 202, 10):
+            panel(x, 52, 5, 3, colors['block_border'], colors['block_border'], 1)
+            panel(x, 153, 5, 3, colors['block_border'], colors['block_border'], 1)
+        for y in range(62, 146, 10):
+            panel(106, y, 3, 5, colors['block_border'], colors['block_border'], 1)
+            panel(208, y, 3, 5, colors['block_border'], colors['block_border'], 1)
+        panel(120, 66, 77, 76, colors['block_accent'], colors['block_accent_border'], 5, 1.8)
+        glow = QColor(colors['accent'])
+        glow.setAlpha(int(22 + (32 if self.motion else 0) * (1 + math.sin(self.phase*2*math.pi))/2 + 110*self.pulse))
+        p.setPen(QPen(glow, 2.4))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawRoundedRect(QRectF(116, 62, 85, 84), 7, 7)
+        caption('CPU', 132, 85, 53, 19, 13, 'block_accent_text')
+        caption(fmt(self.temperature, ' °C'), 128, 106, 61, 19, 13, 'block_accent_text')
+
+        caption('DDR', 230, 20, 53, 13, 8)
+        for x in (234, 258):
+            panel(x-3, 36, 20, 128, colors['block'], colors['block_border'], 3)
+            panel(x, 41, 14, 114, colors['block_accent'], colors['block_accent_border'], 2)
+            for y in range(48, 149, 14):
+                panel(x+2, y, 10, 5, colors['block'], colors['trace'], 1)
+            for y in (38, 158):
+                panel(x+3, y, 8, 4, colors['block_accent_border'], colors['block_accent_border'], 1)
+
+        panel(90, 165, 120, 12, colors['block'], colors['block_border'], 2)
+        panel(100, 168, 92, 5, colors['block_accent'], colors['trace'], 1)
+        caption('M.2', 147, 166, 34, 9, 7, 'block_accent_text')
+        panel(74, 187, 179, 16, colors['block_accent'], colors['block_accent_border'], 2)
+        panel(80, 190, 163, 6, colors['board_bg'], colors['board_border'], 1)
+        panel(131, 189, 5, 10, colors['block_accent_border'], colors['block_accent_border'], 1)
+        caption('PCIe x16', 80, 206, 70, 11, 8)
+        panel(76, 218, 72, 8, colors['block'], colors['block_border'], 2)
+        for x in (84, 96, 108, 120, 132):
+            panel(x, 220, 5, 4, colors['block_accent'], colors['trace'], 1)
+
+        panel(280, 123, 36, 42, colors['block'], colors['block_border'], 3)
+        for y in (130, 146):
+            panel(284, y, 28, 12, colors['board_bg'], colors['hole_border'], 2)
+        caption('SATA', 282, 107, 34, 12, 7)
+        panel(271, 177, 46, 45, colors['block_accent'], colors['block_accent_border'], 6)
+        for offset in range(4, 34, 7):
+            line = QColor(colors['block_accent_border'])
+            line.setAlpha(105)
+            p.setPen(QPen(line, 1))
+            p.drawLine(277+offset, 184, 277+offset, 200)
+        caption('CHIPSET', 275, 204, 38, 12, 7, 'block_accent_text')
+        panel(290, 50, 25, 18, colors['block'], colors['block_border'], 2)
+        caption('FAN', 291, 70, 23, 10, 7)
+        for x, y in ((31, 20), (319, 20), (31, 224), (319, 224)):
             p.setPen(QPen(QColor(colors['hole_border']), 2))
             p.setBrush(QColor(colors['background']))
-            p.drawEllipse(QRectF(x-3, y-3, 6, 6))
+            p.drawEllipse(QRectF(x-4, y-4, 8, 8))
+            p.setPen(QPen(QColor(colors['block_border']), 1))
+            p.drawLine(x-2, y, x+2, y)
         p.end()
 
 
@@ -302,7 +435,39 @@ class Chart(QWidget):
         self.values = deque(maxlen=120)
         self.caption = 'CPU %'
         self.theme = THEMES[DEFAULT_THEME]
+        self.motion = True
+        self.highlight = 0.0
+        self.animation = QVariantAnimation(self)
+        self.animation.setDuration(700)
+        self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.animation.valueChanged.connect(self.animate_highlight)
         self.setMinimumHeight(100)
+
+    def animate_highlight(self, value):
+        self.highlight = float(value)
+        self.update()
+
+    def pulse_latest(self):
+        self.animation.stop()
+        if self.motion and self.isVisible() and self.values and self.values[-1] is not None:
+            self.animation.setStartValue(1.0)
+            self.animation.setEndValue(0.0)
+            self.animation.start()
+        else:
+            self.highlight = 0.0
+            self.update()
+
+    def set_motion(self, enabled):
+        self.motion = enabled
+        if not enabled:
+            self.animation.stop()
+            self.highlight = 0.0
+            self.update()
+
+    def hideEvent(self, event):
+        self.animation.stop()
+        self.highlight = 0.0
+        super().hideEvent(event)
 
     def paintEvent(self, event):
         colors = self.theme
@@ -321,12 +486,15 @@ class Chart(QWidget):
         if len(self.values) > 1:
             path = QPainterPath()
             drawing = False
+            endpoint = None
             for i, value in enumerate(self.values):
                 if value is None:
                     drawing = False
+                    endpoint = None
                     continue
                 x = bounds.left() + i*bounds.width()/119
                 y = bounds.bottom() - max(0, min(100, value))*bounds.height()/100
+                endpoint = QPointF(x, y)
                 if not drawing:
                     path.moveTo(x, y)
                     drawing = True
@@ -334,6 +502,17 @@ class Chart(QWidget):
                     path.lineTo(x, y)
             p.setPen(QPen(QColor(colors['accent']), 2.5))
             p.drawPath(path)
+            if endpoint is not None:
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QColor(colors['accent']))
+                p.drawEllipse(endpoint, 3, 3)
+                if self.highlight > 0:
+                    halo = QColor(colors['accent'])
+                    halo.setAlpha(int(170*self.highlight))
+                    p.setPen(QPen(halo, 1.8))
+                    p.setBrush(Qt.BrushStyle.NoBrush)
+                    radius = 4 + 7*(1-self.highlight)
+                    p.drawEllipse(endpoint, radius, radius)
         p.end()
 
 
@@ -485,7 +664,7 @@ class Window(QMainWindow):
         bv = QVBoxLayout(board)
         bv.setContentsMargins(14, 10, 14, 14)
         self.board = Motherboard()
-        self.board.motion = self.motion
+        self.board.set_motion(self.motion)
         bv.addWidget(self.board)
         name = label(self.monitor.identity['board'], 'section')
         name.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -572,6 +751,7 @@ class Window(QMainWindow):
         graph_bar.addWidget(self.pause_button)
         l.addLayout(graph_bar)
         self.chart = Chart()
+        self.chart.set_motion(self.motion)
         l.addWidget(self.chart)
         self.summary = label('Veriler bekleniyor…', 'muted')
         l.addWidget(self.summary)
@@ -766,7 +946,8 @@ class Window(QMainWindow):
     def set_motion(self, enabled):
         self.motion = enabled
         self.settings.setValue('motion', enabled)
-        self.board.motion = enabled
+        self.board.set_motion(enabled)
+        self.chart.set_motion(enabled)
         self.rotor.motion = enabled
         self.rotor.sync()
         for meter in self.meters.values():
@@ -776,8 +957,6 @@ class Window(QMainWindow):
                 meter.animation.stop()
                 meter.advance(target)
         if not enabled:
-            self.board.animation.stop()
-            self.board.animate(0)
             self.fade.stop()
             self.fade_effect.setOpacity(1)
 
@@ -824,7 +1003,7 @@ class Window(QMainWindow):
                            percent(d['memory_used'], d['memory_total'])][index])
         self.chart.values = deque(values, maxlen=120)
         self.chart.caption = self.chart_choice.currentText()
-        self.chart.update()
+        self.chart.pulse_latest()
 
     def render_sensors(self, *args):
         if not self.latest:

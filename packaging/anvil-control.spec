@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.10.0
+Version:        0.11.0
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,9 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Wed Sep 23 2026 Anvil contributors - 0.11.0-1
+- Redraw the theme-aware motherboard as a layered top-down component illustration.
+- Add decorative trace motion, CPU glow and chart sample halo with motion opt-out.
 * Wed Sep 23 2026 Anvil contributors - 0.10.0-1
 - Allow the verified fan helper without a password only in active local sessions.
 - Keep inactive/remote sessions denied and preserve helper hardware safeguards.
