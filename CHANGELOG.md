@@ -1,5 +1,14 @@
 # Değişiklikler
 
+## 0.8.0 — 2026-09-23
+
+- Farklı ASUS anakartlarında mevcut Linux sensör, GPU, güç profili ve fan arayüzlerini otomatik gösteren destek tablosu eklendi. Doğrulanmamış modellerde izleme açık, fan yazma kapalıdır.
+- Hazır fan eğrileri, yazma desteği olmasa da önizlenebilir; uygulama düğmesi yalnızca güvenli doğrulanmış kanallarda açılır.
+- Bakır Kızılı, Mor Gece, Grafit ve Gün Işığı temaları eklendi; toplam yedi kalıcı tema var.
+- Eksik CPU/bellek telemetrisi, sıfır toplam bellek/disk ve eksik çalışma süresi yüzünden oluşabilecek arayüz hataları giderildi.
+- Doğrulanmış model adı tek başına fan yazımını açmaz; ASUS DMI üretici kimliği de şarttır.
+- Yeni kapsam ve tema regresyon testleri eklendi.
+
 ## 0.7.0 — 2026-09-23
 
 - Ayarlar bölümüne kalıcı Anvil Sarı, Gece Mavisi ve Orman Yeşili tema seçenekleri eklendi.

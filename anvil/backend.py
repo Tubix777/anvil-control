@@ -26,7 +26,7 @@ def run(args):
 def number(path, divisor=1):
     try:
         return float(read(path)) / divisor
-    except ValueError:
+    except (ValueError, ZeroDivisionError):
         return None
 
 
@@ -187,24 +187,37 @@ class Monitor:
                     openrgb=shutil.which('openrgb'))
 
     def sample(self):
-        vals = [int(x) for x in read('/proc/stat').splitlines()[0].split()[1:9]]
-        total, idle = sum(vals), vals[3] + vals[4]
+        try:
+            vals = [int(x) for x in read('/proc/stat').splitlines()[0].split()[1:9]]
+            if len(vals) < 5:
+                raise ValueError('Eksik CPU sayacı')
+            total, idle = sum(vals), vals[3] + vals[4]
+        except (IndexError, ValueError):
+            total = idle = None
         usage = None
-        if self.previous:
+        if self.previous and total is not None:
             dt, di = total - self.previous[0], idle - self.previous[1]
             usage = max(0, min(100, 100 * (dt-di) / dt)) if dt > 0 else None
-        self.previous = total, idle
+        self.previous = (total, idle) if total is not None else None
         mem = {}
         for line in read('/proc/meminfo').splitlines():
-            key, value = line.split(':', 1)
-            mem[key] = int(value.strip().split()[0]) * 1024
+            try:
+                key, value = line.split(':', 1)
+                mem[key] = int(value.strip().split()[0]) * 1024
+            except (ValueError, IndexError):
+                continue
+        memory_total = mem.get('MemTotal')
+        memory_available = mem.get('MemAvailable')
+        memory_used = (max(0, memory_total-memory_available)
+                       if memory_total is not None and memory_available is not None else None)
         ss = sensors()
         cpu_temp = cpu_temperature(ss)
         disk = shutil.disk_usage('/')
+        uptime = read('/proc/uptime').split()
         return dict(time=time.time(), cpu_usage=usage, cpu_temp=cpu_temp,
                     cpu_mhz=number('/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq', 1000),
-                    memory_used=mem['MemTotal']-mem['MemAvailable'], memory_total=mem['MemTotal'],
+                    memory_used=memory_used, memory_total=memory_total,
                     disk_used=disk.used, disk_total=disk.total,
-                    uptime=read('/proc/uptime').split()[0], sensors=ss,
+                    uptime=uptime[0] if uptime else '', sensors=ss,
                     gpu=self.gpu.sample() or self.amd_gpu.sample(),
                     profile=property_value('ActiveProfile'), profiles=property_value('Profiles') or [])

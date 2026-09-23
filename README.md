@@ -9,6 +9,8 @@
 
 ![Anvil Control ana sayfa](docs/overview.png)
 
+[Gün Işığı tema önizlemesi](docs/daylight.png)
+
 ## Donanım kapsamı
 
 Anvil, anakart modelini DMI’dan okur ve Linux’un sunduğu sıcaklık, fan ve güç arayüzlerini gösterir. Intel `coretemp` ile AMD `k10temp` / `zenpower` işlemci sıcaklıkları okunur. NVIDIA GPU ölçümleri NVML’ye, AMD GPU ölçümleri `amdgpu` sysfs arayüzlerine, RGB cihazları isteğe bağlı OpenRGB’ye bağlıdır. Mevcut aygıta göre bazı değerler gösterilmeyebilir.
@@ -24,12 +26,14 @@ Anvil, anakart modelini DMI’dan okur ve Linux’un sunduğu sıcaklık, fan ve
 
 Bu nedenle uygulama farklı ASUS sistemlerinde genel izleme için kullanılabilir; her modelde aynı sensörler veya yazılabilir fan kontrolü olduğu iddia edilmez. Yeni bir fan profili ancak anakart, kontrolcü, kanal ve sıcaklık kaynağı gerçek donanımda doğrulandıktan sonra eklenir.
 
+**Cihazlar → Bu sistemde kullanılabilir özellikler** tablosu, o bilgisayarda bulunan sıcaklık ve fan okumalarını, PWM arayüzlerini, GPU telemetrisini, güç profillerini ve fan yazma durumunu ayrı ayrı gösterir. PWM dosyasının görünmesi tek başına güvenli yazma desteği anlamına gelmez. Hazır eğriler her ASUS kartta incelenebilir, ancak yalnızca doğrulanmış kanalda ve paket yardımcısı kuruluysa uygulanabilir.
+
 ## Kurulum — Fedora 44 KDE
 
 [Sürümlerden](https://github.com/Tubix777/anvil-control/releases) RPM’yi indirin:
 
 ```bash
-sudo dnf install ./anvil-control-0.7.0-1.fc44.noarch.rpm
+sudo dnf install ./anvil-control-0.8.0-1.fc44.noarch.rpm
 anvil-control
 ```
 
@@ -41,7 +45,7 @@ Kaldırma: `sudo dnf remove anvil-control`. Paketi kaldırmadan önce fan ayarı
 
 Beş bölüm: **Genel bakış**, **Sensörler**, **Güç**, **Cihazlar** (RGB, envanter ve tanılama) ve **Ayarlar**. Ana sayfada canlı ölçümler ve fan paneli; ayrıntılarda arama, grafikler, CSV ölçümleri ve isteğe bağlı JSON tanılama bulunur. Veriler yerelde kalır; kendiliğinden gönderilmez.
 
-**Ayarlar → Görünüm** bölümünde Anvil Sarı, Gece Mavisi ve Orman Yeşili seçilebilir. Tema anında değişir ve sonraki açılışta korunur. KDE uygulama menüsündeki Anvil Control başlatıcısı görev çubuğuna sabitlenebilir; RPM özel simgeyi de kurar.
+**Ayarlar → Görünüm** bölümünde Anvil Sarı, Gece Mavisi, Orman Yeşili, Bakır Kızılı, Mor Gece, Grafit ve Gün Işığı seçilebilir. Tema anında değişir ve sonraki açılışta korunur. KDE uygulama menüsündeki Anvil Control başlatıcısı görev çubuğuna sabitlenebilir; RPM özel simgeyi de kurar.
 
 Ana sayfadaki fan merkezinde **Sakin**, **Dengeli** ve **Yüksek soğutma** hazır sıcaklık eğrileri seçilebilir; **Eğriyi uygula** seçili, doğrulanmış anakart kanalına yazar. Bunlar sabit RPM hedefleri değildir. 75 ve 85 °C noktalarında tüm hazır eğriler %100 PWM uygular. **Önceki ayarlar** bu açılıştaki ilk değişiklik öncesine döner. GPU fanı için yazma denetimi sunulmaz.
 
@@ -60,11 +64,11 @@ python3 -m unittest discover -s tests -v
 QT_QPA_PLATFORM=offscreen PYTHONPATH=. python3 tests/smoke_ui.py
 ```
 
-26 birim testi ve gerçek sensör telemetrisiyle beş bölümlü arayüz testi. Smoke testi yalnızca mevcut sistemde çalışır. Bu bağımsız alpha proje ASUS/Fedora tarafından onaylanmamıştır. Anakart çizimi temsili şemadır, pin bağlantısı değildir. AMD GPU desteği sysfs fikstürleriyle sınandı; gerçek AMD donanımında henüz doğrulanmadı. JSON tanılama raporunu paylaşmadan önce içeriğini inceleyin; raporda kart/BIOS, PCI ve sensör bilgileri bulunur.
+30 birim testi ve gerçek sensör telemetrisiyle beş bölümlü arayüz testi. Smoke testi yalnızca mevcut sistemde çalışır. Bu bağımsız alpha proje ASUS/Fedora tarafından onaylanmamıştır. Anakart çizimi temsili şemadır, pin bağlantısı değildir. AMD GPU desteği sysfs fikstürleriyle sınandı; gerçek AMD donanımında henüz doğrulanmadı. JSON tanılama raporunu paylaşmadan önce içeriğini inceleyin; raporda kart/BIOS, PCI ve sensör bilgileri bulunur.
 
 ## English
 
-Local Fedora hardware monitoring and controls for ASUS systems. Board identity and available Linux sensor interfaces are discovered dynamically. NVIDIA NVML and experimental read-only AMDGPU sysfs telemetry are supported. Writable motherboard fan curves remain restricted to the physically validated PRIME H610M-K D4 / NCT6798 profile; monitoring may work on other ASUS boards without fan-write support. Experimental alpha.
+Local Fedora hardware monitoring and controls for ASUS systems. Board identity and available Linux sensor interfaces are discovered dynamically, with a per-system capability matrix. NVIDIA NVML and experimental read-only AMDGPU sysfs telemetry are supported. Seven persistent themes are available. Writable motherboard fan curves remain restricted to the physically validated PRIME H610M-K D4 / NCT6798 profile; monitoring may work on other ASUS boards without fan-write support. Experimental alpha.
 
 ## Kaynaklar
 

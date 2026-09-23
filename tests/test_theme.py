@@ -10,11 +10,27 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
 
-from anvil.app import (DEFAULT_THEME, STYLE, STYLE_COLOR_ROLES, THEMES, Window,
-                       configure_style, resolve_theme, style_for_theme)
+from anvil.app import (DEFAULT_THEME, STYLE, STYLE_COLOR_ROLES, THEMES, THEME_NAMES,
+                       Window, configure_style, resolve_theme, style_for_theme)
 
 
 class ThemeTests(unittest.TestCase):
+    def test_seven_themes_have_readable_primary_text(self):
+        self.assertEqual(set(THEMES), set(THEME_NAMES))
+        self.assertEqual(len(THEMES), 7)
+        def luminance(color):
+            parts = [int(color[i:i+2], 16)/255 for i in (1, 3, 5)]
+            linear = [v/12.92 if v <= 0.04045 else ((v+0.055)/1.055)**2.4 for v in parts]
+            return sum(weight*value for weight, value in zip((0.2126, 0.7152, 0.0722), linear))
+        def contrast(left, right):
+            a, b = luminance(left), luminance(right)
+            return (max(a, b)+0.05)/(min(a, b)+0.05)
+        for name, theme in THEMES.items():
+            with self.subTest(theme=name):
+                for front, back in [('foreground', 'background'), ('muted', 'background'),
+                                    ('on_accent', 'accent')]:
+                    self.assertGreaterEqual(contrast(theme[front], theme[back]), 4.5)
+
     def test_every_stylesheet_color_has_a_palette_role(self):
         colors = {value.lower() for value in re.findall(r'#[0-9a-fA-F]{6}', STYLE)}
         self.assertEqual(colors, set(STYLE_COLOR_ROLES))
@@ -54,3 +70,28 @@ class ThemeTests(unittest.TestCase):
                 self.assertEqual(app.styleSheet(), style_for_theme('night'))
             finally:
                 reopened.quit_app()
+
+    def test_missing_metrics_and_unverified_asus_board_remain_read_only(self):
+        app = QApplication.instance() or QApplication([])
+        configure_style(app)
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings):
+                window = Window()
+            try:
+                window.monitor.identity.update(board='ROG STRIX X670E-E GAMING WIFI',
+                                               vendor='ASUSTeK COMPUTER INC.', asus=True)
+                sample = dict(time=0, cpu_usage=None, cpu_temp=None, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[], gpu={'name':'GPU without VRAM telemetry',
+                              'memory_total':1024}, profile=None, profiles=[])
+                with patch('anvil.app.channels', return_value=[]):
+                    window.update_data(sample)
+                window.chart_choice.setCurrentIndex(4)
+                self.assertEqual(window.cards['ram'].text(), '—')
+                self.assertIn('Fan yazma: kapalı', window.compatibility.text())
+                self.assertFalse(window.preset_apply.isEnabled())
+                self.assertTrue(window.preset_combo.isEnabled())
+                self.assertIn('henüz doğrulanmadı', window.fan_feedback.text())
+            finally:
+                window.quit_app()

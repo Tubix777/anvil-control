@@ -18,6 +18,7 @@ from .widgets import Meter, FanRotor
 from .insights import ThermalAlerts, SensorStats
 from . import __version__
 from .fans import channels, supports_fan_write, fan_result, FAN_PRESETS, preset_points
+from .compat import capability_report
 from .rgb import parse_devices
 
 STYLE = '''
@@ -44,6 +45,7 @@ QHeaderView::section { background:#26251f; color:#ccc7b4; border:0; padding:11px
 QTableWidget::item { padding:8px; }
 QTextEdit { background:#171715; border:1px solid #35332b; border-radius:10px; padding:12px; }
 QComboBox { background:#25241e; padding:9px; border:1px solid #484332; border-radius:6px; }
+QComboBox QAbstractItemView { background:#191917; color:#f2f1ec; border:1px solid #35332b; selection-background-color:#7a651c; }
 QScrollArea { border:0; }
 QLineEdit, QSpinBox { background:#25241e; padding:9px; border:1px solid #484332; border-radius:6px; selection-background-color:#7a651c; }
 QToolTip { background:#25241e; color:#f2f1ec; border:1px solid #ffd438; }
@@ -57,6 +59,10 @@ THEME_NAMES = {
     'anvil': 'Anvil Sarı',
     'night': 'Gece Mavisi',
     'forest': 'Orman Yeşili',
+    'copper': 'Bakır Kızılı',
+    'violet': 'Mor Gece',
+    'graphite': 'Grafit',
+    'daylight': 'Gün Işığı',
 }
 THEMES = {
     'anvil': dict(background='#101010', foreground='#f2f1ec', sidebar='#090909',
@@ -87,6 +93,49 @@ THEMES = {
         block_accent_text='#d3ffc2', block_text='#d1e4cf', hole_border='#729375',
         meter_track='#304a34', rotor_ring='#5c8060', rotor_disabled='#879d88'),
 }
+
+THEMES.update({
+    'copper': dict(THEMES['anvil'], background='#17110e', foreground='#f9eee5',
+        sidebar='#100c0b', sidebar_border='#523428', card='#241914', border='#664434',
+        accent='#ffad65', muted='#ceb2a0', on_accent='#251208', button='#35251d',
+        button_border='#76503b', hover='#513323', disabled_text='#9b7d6b',
+        disabled_bg='#281d18', table='#211813', grid='#4f3428', header='#38251c',
+        header_text='#e5c9b4', selection='#84512d', board_bg='#1d1510',
+        board_border='#a46a46', trace='#573929', block_accent='#603a25',
+        block='#37261c', block_accent_border='#ffba7f', block_border='#a16b4a',
+        block_accent_text='#ffe1c3', block_text='#e5cbb9', hole_border='#ad7350',
+        meter_track='#513629', rotor_ring='#986444', rotor_disabled='#a08876'),
+    'violet': dict(THEMES['anvil'], background='#15101e', foreground='#f3edff',
+        sidebar='#100b17', sidebar_border='#3b2b52', card='#21182e', border='#503866',
+        accent='#c7a4ff', muted='#c2b3d4', on_accent='#190d29', button='#30223f',
+        button_border='#684d82', hover='#48315f', disabled_text='#9482a7',
+        disabled_bg='#241b30', table='#1d1628', grid='#423050', header='#31243e',
+        header_text='#dacbea', selection='#654683', board_bg='#191322',
+        board_border='#8060a2', trace='#423052', block_accent='#4d3468',
+        block='#30243e', block_accent_border='#d3b6ff', block_border='#775b90',
+        block_accent_text='#e7d4ff', block_text='#d7c7e6', hole_border='#9274af',
+        meter_track='#463351', rotor_ring='#765991', rotor_disabled='#9382a1'),
+    'graphite': dict(THEMES['anvil'], background='#111417', foreground='#e9edf0',
+        sidebar='#0c1013', sidebar_border='#343c42', card='#1b2227', border='#45515a',
+        accent='#e4e8ed', muted='#aebbc5', on_accent='#151a1e', button='#293239',
+        button_border='#57636c', hover='#3d4a52', disabled_text='#87939b',
+        disabled_bg='#20282d', table='#1b2227', grid='#364149', header='#2d383f',
+        header_text='#d0d9de', selection='#52626b', board_bg='#151c20',
+        board_border='#83939e', trace='#3e4b54', block_accent='#485861',
+        block='#2b363d', block_accent_border='#dce6eb', block_border='#819099',
+        block_accent_text='#f1f7f9', block_text='#d4dfe4', hole_border='#91a1aa',
+        meter_track='#3b474e', rotor_ring='#77878f', rotor_disabled='#89949a'),
+    'daylight': dict(THEMES['anvil'], background='#f3f2ed', foreground='#202a30',
+        sidebar='#e6e8e5', sidebar_border='#c4cfcd', card='#ffffff', border='#b6c6c8',
+        accent='#156b8a', muted='#4b5f69', on_accent='#ffffff', button='#e6edf0',
+        button_border='#9cb2bc', hover='#d5e5eb', disabled_text='#65747c',
+        disabled_bg='#e9eceb', table='#ffffff', grid='#d4e0e3', header='#dce9ec',
+        header_text='#314951', selection='#b7d6e2', board_bg='#eef5f5',
+        board_border='#6e9dad', trace='#aacbd3', block_accent='#b6dbe4',
+        block='#d6e5e8', block_accent_border='#277d99', block_border='#769ca7',
+        block_accent_text='#154f63', block_text='#30515a', hole_border='#6e9eab',
+        meter_track='#cadadf', rotor_ring='#739ba7', rotor_disabled='#84979b'),
+})
 
 STYLE_COLOR_ROLES = {
     '#101010': 'background', '#f2f1ec': 'foreground', '#090909': 'sidebar',
@@ -234,6 +283,17 @@ def rows(widget, data):
 
 def fmt(v, unit='', digits=0):
     return '—' if v is None else f'{v:.{digits}f}{unit}'
+
+
+def percent(part, total):
+    return 100 * part / total if part is not None and total and total > 0 else None
+
+
+def hours(value):
+    try:
+        return f'{float(value)/3600:.1f}'
+    except (TypeError, ValueError):
+        return '—'
 
 
 class Chart(QWidget):
@@ -408,6 +468,8 @@ class Window(QMainWindow):
         l = self.page('Kontrol sende.', 'Donanımın, sıcaklıkların ve fanların tek ekranda.')
         self.status = label('Sensörler okunuyor…', 'muted')
         l.addWidget(self.status)
+        self.compatibility = label('Model ve kullanılabilir özellikler algılanıyor…', 'accent')
+        l.addWidget(self.compatibility)
         top = QHBoxLayout()
         board = QFrame()
         board.setObjectName('card')
@@ -472,7 +534,6 @@ class Window(QMainWindow):
         for key, (name, _) in FAN_PRESETS.items():
             self.preset_combo.addItem(name, key)
         self.preset_combo.currentIndexChanged.connect(self.update_preset_info)
-        self.preset_combo.setEnabled(False)
         preset_row.addWidget(self.preset_combo, 1)
         self.preset_apply = button('Eğriyi uygula', self.apply_fan_preset)
         self.preset_apply.setEnabled(False)
@@ -569,6 +630,11 @@ class Window(QMainWindow):
 
     def build_hardware(self):
         l = self.device_layout
+        l.addWidget(label('Bu sistemde kullanılabilir özellikler', 'section'))
+        l.addWidget(label('ASUS modellerinde izleme otomatik algılanır; fan yazma için fiziksel doğrulama gerekir.', 'muted'))
+        self.capability_table = table(['Özellik', 'Algılanan durum'])
+        self.capability_table.setMinimumHeight(270)
+        l.addWidget(self.capability_table)
         l.addWidget(label('Donanım', 'section'))
         l.addWidget(label('Seri numarası ve makine kimliği okunmaz.', 'muted'))
         t = table(['Bileşen', 'Bilgi'])
@@ -641,8 +707,8 @@ class Window(QMainWindow):
         l.addWidget(self.threshold)
         l.addWidget(label('Bu eşik kişisel bir bildirim tercihidir; donanımın güvenli sıcaklık sınırı değildir. Tekrarlanan uyarı için sıcaklığın önce eşiğin 5 °C altına düşmesi gerekir. Duraklatıldığında uyarılar da durur.', 'muted'))
         l.addWidget(label('Grafikte son 120 ölçüm; dışa aktarma için bellekte son 3.600 ölçüm tutulur. Uygulama kapanınca geçmiş silinir. Yalnızca dışa aktardığınız kayıtlar diske yazılır.', 'muted'))
-        fan_scope = ('Fan yazma: bu sürümde yalnızca doğrulanmış PRIME H610M-K D4.'
-                     if supports_fan_write(self.monitor.identity['board'])
+        fan_scope = ('Fan yazma: bu kartta doğrulanmış profil algılandı; güvenli kanal da gerekli.'
+                     if supports_fan_write(self.monitor.identity['board'], self.monitor.identity['vendor'])
                      else 'Fan yazma, her anakart için ayrı doğrulama gerektirir ve burada kapalıdır.')
         l.addWidget(label(f'Anvil Control {__version__} • Alpha\nASUS tarafından geliştirilmemiş bağımsız proje.\n{fan_scope}\nRGB desteği algılanan OpenRGB aygıtlarına bağlıdır.', 'muted'))
         l.addStretch()
@@ -740,7 +806,7 @@ class Window(QMainWindow):
         for d in list(self.history)[-120:]:
             gpu = d['gpu'] or {}
             values.append([d['cpu_usage'], gpu.get('usage'), d['cpu_temp'], gpu.get('temperature'),
-                           100*d['memory_used']/d['memory_total']][index])
+                           percent(d['memory_used'], d['memory_total'])][index])
         self.chart.values = deque(values, maxlen=120)
         self.chart.caption = self.chart_choice.currentText()
         self.chart.update()
@@ -930,17 +996,20 @@ class Window(QMainWindow):
         self.board.set_temperature(d['cpu_temp'])
         self.rotor.set_speed(gpu.get('fan'))
         percentages = {'cpu': d['cpu_temp'], 'load': d['cpu_usage'], 'gpu': gpu.get('temperature'),
-                       'ram': 100*d['memory_used']/d['memory_total']}
+                       'ram': percent(d['memory_used'], d['memory_total'])}
         for key, meter in self.meters.items():
             meter.set_value(percentages[key])
         vram = (f"{gpu['memory_used']/2**30:.1f} / {gpu['memory_total']/2**30:.1f} GiB"
-                if gpu.get('memory_total') else '—')
-        self.resources.setText(f"VRAM  {vram}     ·     Disk /  %{100*d['disk_used']/d['disk_total']:.0f} dolu")
+                if gpu.get('memory_used') is not None and gpu.get('memory_total') else '—')
+        disk_percent = percent(d['disk_used'], d['disk_total'])
+        self.resources.setText(f"VRAM  {vram}     ·     Disk /  {fmt(disk_percent, ' %')} dolu")
         self.check_alerts(d)
         self.cards['cpu'].setText(fmt(d['cpu_temp'], ' °C'))
         self.cards['load'].setText(fmt(d['cpu_usage'], ' %'))
         self.cards['gpu'].setText(fmt(gpu.get('temperature'), ' °C'))
-        self.cards['ram'].setText(f"{d['memory_used']/2**30:.1f} / {d['memory_total']/2**30:.1f} GiB")
+        ram_text = (f"{d['memory_used']/2**30:.1f} / {d['memory_total']/2**30:.1f} GiB"
+                    if d['memory_used'] is not None and d['memory_total'] else '—')
+        self.cards['ram'].setText(ram_text)
         self.update_chart()
         stamp = datetime.fromtimestamp(d['time']).strftime('%H:%M:%S')
         self.status.setText(f'●  CANLI   •   Son ölçüm {stamp}   •   {self.monitor.identity["os"]}')
@@ -948,7 +1017,7 @@ class Window(QMainWindow):
                    else fmt(gpu.get('fan_rpm'), ' RPM'))
         self.summary.setText(f"{gpu.get('name', 'GPU telemetrisi kullanılamıyor')}\n"
             f"GPU kullanımı {fmt(gpu.get('usage'), ' %')}   ·   Güç {fmt(gpu.get('power'), ' W', 1)}   ·   GPU fanı {gpu_fan}\n"
-            f"CPU frekansı {fmt(d['cpu_mhz'], ' MHz')}   ·   Açık kalma {float(d['uptime'])/3600:.1f} saat   ·   Disk / {d['disk_used']/2**30:.0f} / {d['disk_total']/2**30:.0f} GB")
+            f"CPU frekansı {fmt(d['cpu_mhz'], ' MHz')}   ·   Açık kalma {hours(d['uptime'])} saat   ·   Disk / {d['disk_used']/2**30:.0f} / {d['disk_total']/2**30:.0f} GB")
         self.render_sensors()
         fans = [s for s in d['sensors'] if s['unit'] == 'RPM']
         spinning = [s for s in fans if s['value'] > 0]
@@ -971,21 +1040,26 @@ class Window(QMainWindow):
                     self.fan_channel.setCurrentIndex(available_channels.index(selected))
             else:
                 self.fan_channel.addItem('Uygun kanal yok', None)
-        enabled = bool(controllable) and Path('/usr/libexec/anvil-fan-helper').exists() and not self.hardware_busy()
+        helper_installed = Path('/usr/libexec/anvil-fan-helper').exists()
+        enabled = bool(controllable) and helper_installed and not self.hardware_busy()
         self.fan_channel.setEnabled(enabled)
-        self.preset_combo.setEnabled(enabled)
         for b in self.fan_controls:
             b.setEnabled(enabled)
-        if not controllable and not supports_fan_write(self.monitor.identity['board']):
-            self.fan_feedback.setText('Bu ASUS kartta fan sensörleri okunabilir; güvenli yazma profili henüz doğrulanmadı. Kontroller kapalı.')
+        if not controllable and not self.monitor.identity['asus']:
+            self.fan_feedback.setText('ASUS dışı sistemde fan izleme mümkündür; anakart fan yazımı kapalı.')
+        elif not controllable and not supports_fan_write(self.monitor.identity['board'], self.monitor.identity['vendor']):
+            self.fan_feedback.setText('Bu ASUS modelinde fan yazma profili henüz doğrulanmadı. Hız eğrilerini inceleyebilirsiniz; uygulama kapalı.')
         elif not controllable:
             self.fan_feedback.setText('Doğrulanmış kartta güvenli fan kanalı bulunamadı. NCT6798, PWM modu ve PECI sıcaklık kaynağını kontrol edin.')
-        elif not Path('/usr/libexec/anvil-fan-helper').exists():
+        elif not helper_installed:
             self.fan_feedback.setText('Fan denetleyicisi bulundu. Kontrol için güncel RPM paketini kurun.')
         elif self.fan_feedback.text() == 'Kontrol desteği denetleniyor…':
             self.fan_feedback.setText('Otomatik eğri / tam hız hazır. Kanal numaraları fiziksel CPU/kasa etiketi değildir.')
         self.fan_status.setText(f'{len(spinning)} dönen fan / {len(fans)} devir sensörü • {len(pwm)} PWM arayüzü bulundu.' if fans or pwm
                                else 'Fan devir / PWM arayüzü görünmüyor. Mevcut kernel sürücülerinden fan kontrolü alınamıyor.')
+        overview, capabilities = capability_report(self.monitor.identity, d, available_channels, helper_installed)
+        self.compatibility.setText(overview)
+        rows(self.capability_table, capabilities)
         names = {'power-saver':'Enerji tasarrufu', 'balanced':'Dengeli', 'performance':'Performans'}
         self.active_profile.setText('Etkin profil: ' + names.get(d['profile'], d['profile'] or 'Servise erişilemiyor'))
         available = [p.get('Profile', {}).get('data') for p in d['profiles']]

@@ -1,14 +1,29 @@
-import tempfile
 import unittest
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 from subprocess import CompletedProcess, TimeoutExpired
-from anvil.backend import sensors, number, set_profile, property_value, cpu_temperature, is_asus_vendor, AmdGpu
+from anvil.backend import sensors, number, set_profile, property_value, cpu_temperature, is_asus_vendor, AmdGpu, Monitor
 from anvil.fans import supports_fan_write
+from anvil.compat import capability_report
 
 
 class BackendTests(unittest.TestCase):
+    def test_missing_proc_metrics_leave_unknown_values_without_crash(self):
+        monitor = Monitor.__new__(Monitor)
+        monitor.previous = None
+        monitor.gpu = SimpleNamespace(sample=lambda: None)
+        monitor.amd_gpu = SimpleNamespace(sample=lambda: None)
+        with patch('anvil.backend.read', return_value=''), \
+             patch('anvil.backend.sensors', return_value=[]), \
+             patch('anvil.backend.property_value', return_value=None), \
+             patch('anvil.backend.shutil.disk_usage', return_value=SimpleNamespace(used=0, total=0)):
+            sample = monitor.sample()
+        self.assertIsNone(sample['cpu_usage'])
+        self.assertIsNone(sample['memory_used'])
+        self.assertIsNone(sample['memory_total'])
+
     def test_amdgpu_sysfs_telemetry_and_missing_metrics(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -54,8 +69,27 @@ class BackendTests(unittest.TestCase):
         self.assertFalse(is_asus_vendor(''))
 
     def test_fan_writes_are_scoped_to_verified_board_profiles(self):
-        self.assertTrue(supports_fan_write('PRIME H610M-K D4'))
-        self.assertFalse(supports_fan_write('ROG STRIX X670E-E GAMING WIFI'))
+        self.assertTrue(supports_fan_write('PRIME H610M-K D4', 'ASUSTeK COMPUTER INC.'))
+        self.assertFalse(supports_fan_write('PRIME H610M-K D4', 'Other vendor'))
+        self.assertFalse(supports_fan_write('ROG STRIX X670E-E GAMING WIFI', 'ASUS'))
+
+    def test_capabilities_are_detected_on_other_asus_models_without_writes(self):
+        identity = {'board':'ROG STRIX X670E-E GAMING WIFI', 'vendor':'ASUSTeK COMPUTER INC.',
+                    'asus':True, 'pwm':['/sys/class/hwmon/hwmon0/pwm1']}
+        sample = {'sensors':[{'unit':'°C'}, {'unit':'RPM'}], 'gpu':None,
+                  'profiles':[{'Profile':{'data':'balanced'}}]}
+        overview, rows = capability_report(identity, sample, [])
+        self.assertIn('ASUS anakart algılandı', overview)
+        self.assertIn('Fan yazma: kapalı', overview)
+        self.assertIn('henüz doğrulanmadı', dict(rows)['Anakart fan yazımı'])
+        self.assertIn('görül', dict(rows)['PWM arayüzleri'])
+        identity.update(board='PRIME H610M-K D4')
+        overview, rows = capability_report(identity, sample, [1], helper_installed=False)
+        self.assertIn('RPM gerekli', overview)
+        self.assertIn('RPM yardımcısı gerekli', dict(rows)['Anakart fan yazımı'])
+        identity['vendor'] = 'Other vendor'
+        identity['asus'] = False
+        self.assertIn('ASUS dışı', capability_report(identity, sample, [])[0])
 
     def test_missing_measurement_is_not_zero(self):
         self.assertIsNone(number('/path/that/does/not/exist'))

@@ -8,7 +8,7 @@ from unittest.mock import patch
 from PySide6.QtCore import QTimer, QSettings
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
-from anvil.app import Window, configure_style
+from anvil.app import Window, configure_style, THEMES
 
 app = QApplication([])
 configure_style(app)
@@ -55,6 +55,7 @@ def check():
         assert len(w.nav) == 5, 'Navigation should stay focused on five sections'
         assert w.monitor.identity['asus'], 'DMI should identify the ASUS test board'
         assert len(w.diagnostics.toPlainText()) > 0
+        assert w.capability_table.rowCount() == 7
         for n in range(5):
             w.navigate(n)
             app.processEvents()
@@ -86,8 +87,18 @@ def check():
         assert 'GPU FAN' in w.gpu_fan.text()
         assert w.preset_combo.count() == 3
         assert 'Sabit RPM değil' in w.preset_info.text()
+        assert w.theme_combo.count() == len(THEMES) == 7
+        for key in THEMES:
+            w.theme_combo.setCurrentIndex(w.theme_combo.findData(key))
+            app.processEvents()
+            assert w.board.theme == THEMES[key]
+        w.theme_combo.setCurrentIndex(w.theme_combo.findData('anvil'))
+        app.processEvents()
         w.grab().save(str(Path(__file__).resolve().parents[1] / 'docs' / 'overview.png'))
-        print('PASS: telemetry, five sections, search, extrema reset, chart selection, pause, animations, JSON/CSV and screenshot')
+        w.theme_combo.setCurrentIndex(w.theme_combo.findData('daylight'))
+        app.processEvents()
+        w.grab().save(str(Path(__file__).resolve().parents[1] / 'docs' / 'daylight.png'))
+        print('PASS: telemetry, ASUS capability matrix, seven themes, fan preview, five sections and exports')
     except Exception as e:
         errors.append(e)
     finally:

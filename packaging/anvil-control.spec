@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.7.0
+Version:        0.8.0
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -43,6 +43,11 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Wed Sep 23 2026 Anvil contributors - 0.8.0-1
+- Report detected monitoring and write capabilities across ASUS boards.
+- Add Copper, Violet, Graphite and Daylight themes.
+- Handle absent CPU and memory telemetry without dashboard crashes.
+- Require ASUS DMI vendor as well as verified model before offering fan writes.
 * Wed Sep 23 2026 Anvil contributors - 0.7.0-1
 - Add persistent Anvil Yellow, Night Blue and Forest Green themes.
 - Install a branded application icon for KDE taskbar and desktop launchers.

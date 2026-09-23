@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from .backend import read, number
+from .backend import read, number, is_asus_vendor
 
 
 # A profile is write-enabled only after its board, controller, channels and
@@ -23,8 +23,9 @@ def preset_points(key):
     return [list(point) for point in preset[1]] if preset else None
 
 
-def supports_fan_write(board):
-    return board in FAN_PROFILES
+def supports_fan_write(board, vendor):
+    """A matching model name alone must never enable a write control."""
+    return is_asus_vendor(vendor) and board in FAN_PROFILES
 
 
 def fan_result(ok, output, error, action, channel):
@@ -50,12 +51,13 @@ def fan_result(ok, output, error, action, channel):
     return True, 'Fan ayarı uygulandı ve donanımdan geri okunarak doğrulandı.'
 
 
-def channels(root=Path('/sys/class/hwmon'), board=None):
+def channels(root=Path('/sys/class/hwmon'), board=None, vendor=None):
     found = []
     board = board if board is not None else read('/sys/class/dmi/id/board_name')
-    profile = FAN_PROFILES.get(board)
-    if not profile:
+    vendor = vendor if vendor is not None else read('/sys/class/dmi/id/board_vendor')
+    if not supports_fan_write(board, vendor):
         return found
+    profile = FAN_PROFILES.get(board)
     for hw in root.glob('hwmon*'):
         if read(hw/'name') != profile['controller']:
             continue

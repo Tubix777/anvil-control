@@ -42,13 +42,14 @@ class FanTests(unittest.TestCase):
             for i in range(1, 6):
                 (hw/f'pwm1_auto_point{i}_temp').write_text(str(i*10000))
                 (hw/f'pwm1_auto_point{i}_pwm').write_text(str(i*40))
-            self.assertEqual([item['channel'] for item in channels(root, 'PRIME H610M-K D4')], [1])
+            self.assertEqual([item['channel'] for item in channels(root, 'PRIME H610M-K D4', 'ASUS')], [1])
             (hw/'temp8_label').write_text('CPUTIN')
-            self.assertEqual(channels(root, 'PRIME H610M-K D4'), [])
+            self.assertEqual(channels(root, 'PRIME H610M-K D4', 'ASUS'), [])
             (hw/'temp8_label').write_text('PECI Agent 0')
             (hw/'pwm1_auto_point5_temp').unlink()
-            self.assertEqual(channels(root, 'PRIME H610M-K D4'), [])
-            self.assertEqual(channels(root, 'OTHER BOARD'), [])
+            self.assertEqual(channels(root, 'PRIME H610M-K D4', 'ASUS'), [])
+            self.assertEqual(channels(root, 'OTHER BOARD', 'ASUS'), [])
+            self.assertEqual(channels(root, 'PRIME H610M-K D4', 'Other vendor'), [])
 
     def test_ui_accepts_only_matching_verified_helper_result(self):
         fields = {'pwm1_enable': 0}
