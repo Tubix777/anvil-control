@@ -33,11 +33,11 @@ Bu nedenle uygulama farklı ASUS sistemlerinde genel izleme için kullanılabili
 [Sürümlerden](https://github.com/Tubix777/anvil-control/releases) RPM’yi indirin:
 
 ```bash
-sudo dnf install ./anvil-control-0.9.0-1.fc44.noarch.rpm
+sudo dnf install ./anvil-control-0.10.0-1.fc44.noarch.rpm
 anvil-control
 ```
 
-Uygulama menüsünden **Anvil Control** olarak da açılabilir. RPM, kernel sensör sürücüsünü sonraki açılışlarda yüklemek üzere ayarlar. RGB için isteğe bağlı `sudo dnf install openrgb` kurun, ardından **Cihazlar → Cihazları tara** yolunu kullanın. GUI’yi root olarak çalıştırmayın; fan değişikliklerinde sistem kimlik doğrulaması gerekir.
+Uygulama menüsünden **Anvil Control** olarak da açılabilir. RPM, kernel sensör sürücüsünü sonraki açılışlarda yüklemek üzere ayarlar. RGB için isteğe bağlı `sudo dnf install openrgb` kurun, ardından **Cihazlar → Cihazları tara** yolunu kullanın. GUI’yi root olarak çalıştırmayın. Paket kurulumu yönetici yetkisi ister; kurulumdan sonra desteklenen fan işlemleri etkin yerel oturumda ayrıca şifre sormaz.
 
 Kaldırma: `sudo dnf remove anvil-control`. Paketi kaldırmadan önce fan ayarı değiştirdiyseniz **Önceki ayarlar** düğmesiyle başlangıç eğrisini geri yükleyin.
 
@@ -49,7 +49,7 @@ Beş bölüm: **Genel bakış**, **Sensörler**, **Güç**, **Cihazlar** (RGB, e
 
 Ana sayfadaki fan merkezinde **Sakin**, **Dengeli** ve **Yüksek soğutma** hazır sıcaklık eğrileri seçilebilir; **Eğriyi uygula** seçili, doğrulanmış anakart kanalına yazar. Bunlar sabit RPM hedefleri değildir. 75 ve 85 °C noktalarında tüm hazır eğriler %100 PWM uygular. **Önceki ayarlar** bu açılıştaki ilk değişiklik öncesine döner. GPU fanı için yazma denetimi sunulmaz.
 
-Fan değişiklikleri yönetici onayı ister. Yalnızca `/usr/libexec/anvil-fan-helper` için tanımlanan polkit yetkisi kısa süreli olarak hatırlanır; art arda yapılan değişikliklerde aynı şifre penceresi tekrar çıkmaz. Süre dolduğunda yeni onay gerekir. Genel root erişimi veya şifresiz, sınırsız fan yazımı verilmez.
+Fan değişiklikleri için yalnızca `/usr/libexec/anvil-fan-helper` polkit eylemi, **etkin yerel oturumda** şifresiz izinlidir; etkin olmayan ve uzaktan oturumlara izin verilmez. Bu, yalnızca uygulamanın düğmelerini değil, aynı oturumdaki başka programların aynı yardımcıyı çağırmasını da kapsar. Yardımcı yalnızca doğrulanmış kart/kanal ve güvenli eğrileri kabul eder; bu izin genel root erişimi vermez. Ortak kullanılan bilgisayarlarda bu yetki modelini göz önünde bulundurun.
 
 ## Doğrulanmış fan desteği
 

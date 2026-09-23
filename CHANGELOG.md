@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.10.0 — 2026-09-23
+
+- Doğrulanmış fan yardımcısı için etkin yerel oturumda şifresiz çalışma açıldı; fan modu değiştirmek artık yönetici onayı istemez.
+- Etkin olmayan ve uzaktan oturumlar yetkisiz kalır. İzin yalnızca paketli yardımcıya aittir; anakart/kanal denetimi, güvenli eğri sınırları, yedekleme, geri okuma ve geri alma korunur.
+- Bu yetki aynı oturumdaki başka yerel uygulamalardan yardımcı çağrıldığında da geçerlidir; genel root erişimi sağlamaz.
+
 ## 0.9.0 — 2026-09-23
 
 - Tema seçimi her sayfada görünen sol menüye taşındı; Ayarlar seçimiyle eşzamanlı çalışır.

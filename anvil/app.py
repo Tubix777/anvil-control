@@ -551,7 +551,7 @@ class Window(QMainWindow):
         fv.addLayout(preset_row)
         self.preset_info = label('', 'muted')
         fv.addWidget(self.preset_info)
-        fv.addWidget(label('İlk fan değişikliğinde yönetici onayı gerekir; kısa süre içindeki sonraki değişikliklerde onay hatırlanır.', 'muted'))
+        fv.addWidget(label('Fan eğrileri etkin yerel oturumda şifre sormadan uygulanır; yalnızca doğrulanmış kart ve kanallar desteklenir.', 'muted'))
         self.update_preset_info()
         self.fan_feedback = label('Kontrol desteği denetleniyor…', 'muted')
         fv.addWidget(self.fan_feedback)
@@ -945,7 +945,7 @@ class Window(QMainWindow):
         args = [helper, str(channel), action]
         if points is not None:
             args.append(json.dumps(points))
-        self.fan_feedback.setText('Yetkilendirme / donanıma yazma bekleniyor…')
+        self.fan_feedback.setText('Donanıma yazma ve geri okuma bekleniyor…')
         def done(ok, out, err):
             verified, message = fan_result(ok, out, err, action, channel)
             if verified and preset_name:
