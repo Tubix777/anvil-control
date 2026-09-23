@@ -1,5 +1,12 @@
 # Değişiklikler
 
+## 0.7.0 — 2026-09-23
+
+- Ayarlar bölümüne kalıcı Anvil Sarı, Gece Mavisi ve Orman Yeşili tema seçenekleri eklendi.
+- Tema değişikliği kartlara, grafiklere, anakart çizimine ve fan/gösterge animasyonlarına anında uygulanır.
+- KDE görev çubuğu ve masaüstü başlatıcısı için Anvil simgesi paketlendi.
+- Doğrulanmış anakart fan kanalları için Sakin, Dengeli ve Yüksek soğutma hazır sıcaklık eğrileri eklendi; değişiklik mevcut ayrıcalıklı yardımcıdan ve geri okuma denetiminden geçer.
+
 ## 0.6.0 — 2026-09-22
 
 - AMD ekran kartlarında `amdgpu` sysfs üzerinden kullanım, sıcaklık, güç, VRAM ve fan RPM ölçümleri eklendi; arayüzler yoksa değerler boş kalır. Gerçek AMD donanımında henüz sınanmadı.

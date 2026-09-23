@@ -9,6 +9,19 @@ FAN_PROFILES = {
     'PRIME H610M-K D4': {'controller': 'nct6798', 'channels': (1, 2)},
 }
 
+# Temperature-controlled presets, not fixed RPM targets. The privileged helper
+# independently validates every point before writing to the verified board.
+FAN_PRESETS = {
+    'calm': ('Sakin', ((30, 50), (45, 55), (60, 70), (75, 100), (85, 100))),
+    'balanced': ('Dengeli', ((30, 60), (45, 70), (60, 85), (75, 100), (85, 100))),
+    'cool': ('Yüksek soğutma', ((30, 70), (45, 80), (60, 95), (75, 100), (85, 100))),
+}
+
+
+def preset_points(key):
+    preset = FAN_PRESETS.get(key)
+    return [list(point) for point in preset[1]] if preset else None
+
 
 def supports_fan_write(board):
     return board in FAN_PROFILES

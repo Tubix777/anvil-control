@@ -1,5 +1,6 @@
 import csv
 import json
+import re
 import sys
 import shutil
 from collections import deque
@@ -16,7 +17,7 @@ from .backend import Monitor, set_profile
 from .widgets import Meter, FanRotor
 from .insights import ThermalAlerts, SensorStats
 from . import __version__
-from .fans import channels, supports_fan_write, fan_result
+from .fans import channels, supports_fan_write, fan_result, FAN_PRESETS, preset_points
 from .rgb import parse_devices
 
 STYLE = '''
@@ -46,17 +47,76 @@ QComboBox { background:#25241e; padding:9px; border:1px solid #484332; border-ra
 QScrollArea { border:0; }
 QLineEdit, QSpinBox { background:#25241e; padding:9px; border:1px solid #484332; border-radius:6px; selection-background-color:#7a651c; }
 QToolTip { background:#25241e; color:#f2f1ec; border:1px solid #ffd438; }
+QMenu { background:#191917; color:#f2f1ec; border:1px solid #35332b; }
+QMenu::item:selected { background:#3b3520; color:#ffd438; }
 '''
 
 
-def configure_style(app):
+DEFAULT_THEME = 'anvil'
+THEME_NAMES = {
+    'anvil': 'Anvil Sarı',
+    'night': 'Gece Mavisi',
+    'forest': 'Orman Yeşili',
+}
+THEMES = {
+    'anvil': dict(background='#101010', foreground='#f2f1ec', sidebar='#090909',
+        sidebar_border='#2d2b23', card='#191917', border='#35332b', accent='#ffd438',
+        muted='#b3b0a3', on_accent='#111111', button='#25241e', button_border='#484332',
+        hover='#3b3520', disabled_text='#817e71', disabled_bg='#1c1c19', table='#171715',
+        grid='#302e27', header='#26251f', header_text='#ccc7b4', selection='#7a651c',
+        board_bg='#11120f', board_border='#807038', trace='#383722', block_accent='#35301c',
+        block='#242520', block_accent_border='#e0bb36', block_border='#64644f',
+        block_accent_text='#ffe178', block_text='#c3c3af', hole_border='#82794d',
+        meter_track='#343127', rotor_ring='#615a38', rotor_disabled='#777264'),
+    'night': dict(background='#0b1420', foreground='#edf5fb', sidebar='#07111c',
+        sidebar_border='#253d52', card='#122332', border='#31485a', accent='#6fd2ff',
+        muted='#a8bccb', on_accent='#07111c', button='#1a3042', button_border='#375872',
+        hover='#244a60', disabled_text='#7a91a0', disabled_bg='#10202c', table='#112130',
+        grid='#254053', header='#1b3446', header_text='#c4d4df', selection='#245874',
+        board_bg='#0c1b29', board_border='#4984a6', trace='#22465b', block_accent='#1f465d',
+        block='#1b3140', block_accent_border='#7ad9ff', block_border='#578098',
+        block_accent_text='#b6edff', block_text='#ccdfe9', hole_border='#4d819b',
+        meter_track='#263d4b', rotor_ring='#476b80', rotor_disabled='#7d929d'),
+    'forest': dict(background='#0d1511', foreground='#eaf5ea', sidebar='#09110d',
+        sidebar_border='#294237', card='#17251d', border='#355343', accent='#a8ed86',
+        muted='#b3c5b4', on_accent='#102012', button='#213329', button_border='#48664f',
+        hover='#2d4b35', disabled_text='#829387', disabled_bg='#19251c', table='#16231b',
+        grid='#2e4835', header='#24392b', header_text='#cddccb', selection='#476b34',
+        board_bg='#101d15', board_border='#608668', trace='#365b3f', block_accent='#315039',
+        block='#26392b', block_accent_border='#b5f299', block_border='#6d9471',
+        block_accent_text='#d3ffc2', block_text='#d1e4cf', hole_border='#729375',
+        meter_track='#304a34', rotor_ring='#5c8060', rotor_disabled='#879d88'),
+}
+
+STYLE_COLOR_ROLES = {
+    '#101010': 'background', '#f2f1ec': 'foreground', '#090909': 'sidebar',
+    '#2d2b23': 'sidebar_border', '#191917': 'card', '#35332b': 'border',
+    '#ffd438': 'accent', '#b3b0a3': 'muted', '#111111': 'on_accent',
+    '#25241e': 'button', '#484332': 'button_border', '#3b3520': 'hover',
+    '#817e71': 'disabled_text', '#1c1c19': 'disabled_bg', '#171715': 'table',
+    '#302e27': 'grid', '#26251f': 'header', '#ccc7b4': 'header_text',
+    '#7a651c': 'selection',
+}
+
+
+def resolve_theme(key):
+    return key if key in THEMES else DEFAULT_THEME
+
+
+def style_for_theme(key):
+    colors = THEMES[resolve_theme(key)]
+    return re.sub(r'#[0-9a-fA-F]{6}',
+                  lambda match: colors[STYLE_COLOR_ROLES[match.group(0).lower()]], STYLE)
+
+
+def configure_style(app, theme=DEFAULT_THEME):
     family = next((name for name in ['Adwaita Sans', 'Noto Sans', 'DejaVu Sans']
                    if name in QFontDatabase.families()), 'Sans Serif')
     font = QFont(family, 10)
     font.setStyleHint(QFont.StyleHint.SansSerif)
     app.setFont(font)
     app.setStyle('Fusion')
-    app.setStyleSheet(STYLE)
+    app.setStyleSheet(style_for_theme(theme))
 
 
 class Motherboard(QWidget):
@@ -68,6 +128,7 @@ class Motherboard(QWidget):
         self.temperature = None
         self.pulse = 0.0
         self.motion = True
+        self.theme = THEMES[DEFAULT_THEME]
         self.animation = QVariantAnimation(self)
         self.animation.setDuration(800)
         self.animation.valueChanged.connect(self.animate)
@@ -86,39 +147,40 @@ class Motherboard(QWidget):
         self.update()
 
     def paintEvent(self, event):
+        colors = self.theme
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         scale = min(self.width()/350, self.height()/250)
         p.translate((self.width()-350*scale)/2, (self.height()-250*scale)/2)
         p.scale(scale, scale)
-        p.setBrush(QColor('#11120f'))
-        p.setPen(QPen(QColor('#807038'), 1.5))
+        p.setBrush(QColor(colors['board_bg']))
+        p.setPen(QPen(QColor(colors['board_border']), 1.5))
         p.drawRoundedRect(QRectF(51, 9, 248, 229), 8, 8)
-        p.setPen(QPen(QColor('#383722'), 1))
+        p.setPen(QPen(QColor(colors['trace']), 1))
         for i in range(7):
             p.drawPolyline([QPointF(x, y)
                             for x, y in [(130+i*6, 115), (130+i*6, 143+i*3), (217, 143+i*3)]])
         def block(x, y, w, h, title='', accent=False):
-            p.setBrush(QColor('#35301c' if accent else '#242520'))
-            p.setPen(QPen(QColor('#e0bb36' if accent else '#64644f'), 1))
+            p.setBrush(QColor(colors['block_accent'] if accent else colors['block']))
+            p.setPen(QPen(QColor(colors['block_accent_border'] if accent else colors['block_border']), 1))
             p.drawRoundedRect(QRectF(x, y, w, h), 2, 2)
             if title:
                 f = QFont(self.font())
                 f.setPixelSize(9)
                 f.setWeight(QFont.Weight.DemiBold)
                 p.setFont(f)
-                p.setPen(QColor('#ffe178' if accent else '#c3c3af'))
+                p.setPen(QColor(colors['block_accent_text'] if accent else colors['block_text']))
                 p.drawText(QRectF(x, y, w, h), Qt.AlignmentFlag.AlignCenter, title)
         block(116, 43, 87, 80, 'CPU\n' + fmt(self.temperature, ' °C'), True)
         if self.pulse > 0:
-            color = QColor('#ffd438')
+            color = QColor(colors['accent'])
             color.setAlphaF(self.pulse * 0.7)
             p.setPen(QPen(color, 2))
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawRoundedRect(QRectF(111, 38, 97, 90), 6, 6)
         for x in [225, 244]:
             block(x, 32, 14, 110, '', True)
-        p.setPen(QColor('#c3c3af'))
+        p.setPen(QColor(colors['block_text']))
         p.drawText(QRectF(218, 11, 55, 16), Qt.AlignmentFlag.AlignCenter, 'RAM')
         block(278, 48, 10, 72)
         for y in [29, 62, 96]:
@@ -133,8 +195,8 @@ class Motherboard(QWidget):
         block(223, 198, 38, 26, 'CHIP')
         block(274, 175, 20, 44, 'S')
         for x, y in [(62, 19), (288, 19), (62, 227), (288, 227)]:
-            p.setPen(QPen(QColor('#82794d'), 2))
-            p.setBrush(QColor('#101010'))
+            p.setPen(QPen(QColor(colors['hole_border']), 2))
+            p.setBrush(QColor(colors['background']))
             p.drawEllipse(QRectF(x-3, y-3, 6, 6))
         p.end()
 
@@ -179,20 +241,22 @@ class Chart(QWidget):
         super().__init__()
         self.values = deque(maxlen=120)
         self.caption = 'CPU %'
+        self.theme = THEMES[DEFAULT_THEME]
         self.setMinimumHeight(100)
 
     def paintEvent(self, event):
+        colors = self.theme
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         bounds = self.rect().adjusted(40, 16, -12, -28)
-        p.setPen(QColor('#35332b'))
+        p.setPen(QColor(colors['border']))
         for n in range(5):
             y = bounds.bottom() - n * bounds.height()/4
-            p.setPen(QColor('#35332b'))
+            p.setPen(QColor(colors['border']))
             p.drawLine(bounds.left(), int(y), bounds.right(), int(y))
-            p.setPen(QColor('#b3b0a3'))
+            p.setPen(QColor(colors['muted']))
             p.drawText(0, int(y)+4, str(n*25))
-        p.setPen(QColor('#b3b0a3'))
+        p.setPen(QColor(colors['muted']))
         p.drawText(40, self.height()-4, self.caption + '   •   Son 120 ölçüm (0–100)')
         if len(self.values) > 1:
             path = QPainterPath()
@@ -208,7 +272,7 @@ class Chart(QWidget):
                     drawing = True
                 else:
                     path.lineTo(x, y)
-            p.setPen(QPen(QColor('#ffd438'), 2.5))
+            p.setPen(QPen(QColor(colors['accent']), 2.5))
             p.drawPath(path)
         p.end()
 
@@ -246,6 +310,7 @@ class Window(QMainWindow):
         self.resize(1280, 1000)
         self.setMinimumSize(940, 680)
         self.settings = QSettings('Anvil', 'AnvilControl')
+        self.theme_key = resolve_theme(self.settings.value('theme', DEFAULT_THEME, type=str))
         self.motion = self.settings.value('motion', True, type=bool)
         self.stats = SensorStats()
         self.alerts = ThermalAlerts()
@@ -294,6 +359,7 @@ class Window(QMainWindow):
         self.build_hardware()
         self.build_diagnostics()
         self.build_settings()
+        self.apply_theme(self.theme_key, persist=False)
         self.fade_effect = QGraphicsOpacityEffect(self.stack)
         self.stack.setGraphicsEffect(self.fade_effect)
         self.fade = QVariantAnimation(self)
@@ -301,7 +367,7 @@ class Window(QMainWindow):
         self.fade.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.fade.valueChanged.connect(self.fade_effect.setOpacity)
         self.navigate(0)
-        self.tray = QSystemTrayIcon(QIcon.fromTheme('computer'), self)
+        self.tray = QSystemTrayIcon(QIcon.fromTheme('io.anvil.Control', QIcon.fromTheme('computer')), self)
         self.tray.setToolTip('Anvil Control')
         menu = QMenu()
         menu.addAction('Anvil’i göster', self.showNormal)
@@ -400,6 +466,22 @@ class Window(QMainWindow):
             control_row.addWidget(b)
             self.fan_controls.append(b)
         fv.addLayout(control_row)
+        preset_row = QHBoxLayout()
+        preset_row.addWidget(label('Hazır hız eğrisi', 'section'))
+        self.preset_combo = QComboBox()
+        for key, (name, _) in FAN_PRESETS.items():
+            self.preset_combo.addItem(name, key)
+        self.preset_combo.currentIndexChanged.connect(self.update_preset_info)
+        self.preset_combo.setEnabled(False)
+        preset_row.addWidget(self.preset_combo, 1)
+        self.preset_apply = button('Eğriyi uygula', self.apply_fan_preset)
+        self.preset_apply.setEnabled(False)
+        self.fan_controls.append(self.preset_apply)
+        preset_row.addWidget(self.preset_apply)
+        fv.addLayout(preset_row)
+        self.preset_info = label('', 'muted')
+        fv.addWidget(self.preset_info)
+        self.update_preset_info()
         self.fan_feedback = label('Kontrol desteği denetleniyor…', 'muted')
         fv.addWidget(self.fan_feedback)
         l.addWidget(fan_card)
@@ -524,6 +606,14 @@ class Window(QMainWindow):
 
     def build_settings(self):
         l = self.page('Ayarlar', 'Görünürlük ve veri toplama tercihleri')
+        l.addWidget(label('Görünüm', 'section'))
+        self.theme_combo = QComboBox()
+        for key, name in THEME_NAMES.items():
+            self.theme_combo.addItem(name, key)
+        self.theme_combo.setCurrentIndex(self.theme_combo.findData(self.theme_key))
+        self.theme_combo.currentIndexChanged.connect(lambda: self.apply_theme(self.theme_combo.currentData()))
+        l.addWidget(self.theme_combo)
+        l.addWidget(label('Tema anında uygulanır ve sonraki açılışta korunur.', 'muted'))
         l.addWidget(label('Yenileme aralığı', 'section'))
         combo = QComboBox()
         for seconds in [1, 2, 5, 10]:
@@ -556,6 +646,25 @@ class Window(QMainWindow):
                      else 'Fan yazma, her anakart için ayrı doğrulama gerektirir ve burada kapalıdır.')
         l.addWidget(label(f'Anvil Control {__version__} • Alpha\nASUS tarafından geliştirilmemiş bağımsız proje.\n{fan_scope}\nRGB desteği algılanan OpenRGB aygıtlarına bağlıdır.', 'muted'))
         l.addStretch()
+
+    def apply_theme(self, key, persist=True):
+        self.theme_key = resolve_theme(key)
+        if persist:
+            self.settings.setValue('theme', self.theme_key)
+        colors = THEMES[self.theme_key]
+        QApplication.instance().setStyleSheet(style_for_theme(self.theme_key))
+        self.board.theme = colors
+        self.board.update()
+        self.chart.theme = colors
+        self.chart.update()
+        for meter in self.meters.values():
+            meter.accent_color = colors['accent']
+            meter.track_color = colors['meter_track']
+            meter.update()
+        self.rotor.accent_color = colors['accent']
+        self.rotor.ring_color = colors['rotor_ring']
+        self.rotor.disabled_color = colors['rotor_disabled']
+        self.rotor.update()
 
     def navigate(self, index):
         self.fade.stop()
@@ -696,7 +805,8 @@ class Window(QMainWindow):
         layout.addWidget(label('Donanım kontrollü eğri: sıcaklıklar artmalı, hız azalmamalı.\nSon iki nokta %100; en yüksek sıcaklık 85 °C.'))
         grid = QGridLayout()
         temps, speeds = [], []
-        for row, (temp, speed) in enumerate([(30, 50), (45, 60), (60, 75), (75, 100), (85, 100)]):
+        points = preset_points(self.preset_combo.currentData()) or [[30, 50], [45, 60], [60, 75], [75, 100], [85, 100]]
+        for row, (temp, speed) in enumerate(points):
             t, s = QSpinBox(), QSpinBox()
             t.setRange(20, 85)
             s.setRange(50, 100)
@@ -726,7 +836,21 @@ class Window(QMainWindow):
         layout.addWidget(buttons)
         dialog.exec()
 
-    def fan_action(self, action, points=None):
+    def update_preset_info(self, *args):
+        points = preset_points(self.preset_combo.currentData())
+        if points:
+            self.preset_info.setText(' · '.join(f'{temp} °C → %{speed}' for temp, speed in points)
+                                     + '  |  Sabit RPM değil; sıcaklığa göre donanım eğrisi.')
+
+    def apply_fan_preset(self):
+        key = self.preset_combo.currentData()
+        points = preset_points(key)
+        if points is None:
+            self.fan_feedback.setText('Geçerli bir hazır fan eğrisi seçin.')
+            return
+        self.fan_action('curve', points, FAN_PRESETS[key][0])
+
+    def fan_action(self, action, points=None, preset_name=None):
         helper = '/usr/libexec/anvil-fan-helper'
         channel = self.fan_channel.currentData()
         if channel not in [item['channel'] for item in channels()]:
@@ -743,6 +867,8 @@ class Window(QMainWindow):
         self.fan_feedback.setText('Yetkilendirme / donanıma yazma bekleniyor…')
         def done(ok, out, err):
             verified, message = fan_result(ok, out, err, action, channel)
+            if verified and preset_name:
+                message = f'{preset_name} eğrisi: {message}'
             self.fan_feedback.setText(message)
             self.log_event(message)
         self.run_hardware('/usr/bin/pkexec', args, done)
@@ -847,6 +973,7 @@ class Window(QMainWindow):
                 self.fan_channel.addItem('Uygun kanal yok', None)
         enabled = bool(controllable) and Path('/usr/libexec/anvil-fan-helper').exists() and not self.hardware_busy()
         self.fan_channel.setEnabled(enabled)
+        self.preset_combo.setEnabled(enabled)
         for b in self.fan_controls:
             b.setEnabled(enabled)
         if not controllable and not supports_fan_write(self.monitor.identity['board']):
@@ -953,6 +1080,8 @@ class Window(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName('Anvil Control')
+    app.setDesktopFileName('io.anvil.Control')
+    app.setWindowIcon(QIcon.fromTheme('io.anvil.Control', QIcon.fromTheme('computer')))
     configure_style(app)
     window = Window()
     window.show()

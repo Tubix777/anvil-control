@@ -11,6 +11,8 @@ class Meter(QWidget):
         self.value = 0.0
         self.available = False
         self.motion = True
+        self.track_color = '#343127'
+        self.accent_color = '#ffd438'
         self.animation = QVariantAnimation(self)
         self.animation.setDuration(550)
         self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -35,10 +37,10 @@ class Meter(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor('#343127'))
+        p.setBrush(QColor(self.track_color))
         p.drawRoundedRect(QRectF(self.rect()), 3, 3)
         if self.available:
-            p.setBrush(QColor('#ffd438'))
+            p.setBrush(QColor(self.accent_color))
             p.drawRoundedRect(QRectF(0, 0, self.width()*self.value/100, 7), 3, 3)
         p.end()
 
@@ -51,6 +53,9 @@ class FanRotor(QWidget):
         self.speed = None
         self.angle = 0
         self.motion = True
+        self.ring_color = '#615a38'
+        self.accent_color = '#ffd438'
+        self.disabled_color = '#777264'
         self.timer = QTimer(self)
         self.timer.setInterval(40)
         self.timer.timeout.connect(self.tick)
@@ -81,11 +86,11 @@ class FanRotor(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.translate(19, 19)
-        p.setPen(QPen(QColor('#615a38'), 1))
+        p.setPen(QPen(QColor(self.ring_color), 1))
         p.drawEllipse(QRectF(-17, -17, 34, 34))
         p.rotate(self.angle)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor('#ffd438' if self.speed is not None else '#777264'))
+        p.setBrush(QColor(self.accent_color if self.speed is not None else self.disabled_color))
         for _ in range(4):
             p.drawRoundedRect(QRectF(2, -5, 12, 7), 3, 3)
             p.rotate(90)

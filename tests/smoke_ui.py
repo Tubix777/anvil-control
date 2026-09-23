@@ -84,6 +84,8 @@ def check():
         w.update_data(w.latest)
         assert w.fan_status.isVisible(), 'Fan panel must be on home page'
         assert 'GPU FAN' in w.gpu_fan.text()
+        assert w.preset_combo.count() == 3
+        assert 'Sabit RPM değil' in w.preset_info.text()
         w.grab().save(str(Path(__file__).resolve().parents[1] / 'docs' / 'overview.png'))
         print('PASS: telemetry, five sections, search, extrema reset, chart selection, pause, animations, JSON/CSV and screenshot')
     except Exception as e:

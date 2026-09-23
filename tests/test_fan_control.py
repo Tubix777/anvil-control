@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 from anvil.rgb import parse_devices
-from anvil.fans import fan_result, channels
+from anvil.fans import fan_result, channels, FAN_PRESETS, preset_points
 
 path = Path(__file__).resolve().parents[1]/'packaging/anvil-fan-helper'
 loader = importlib.machinery.SourceFileLoader('fan_helper', str(path))
@@ -17,6 +17,18 @@ CURVE = [[30, 50], [45, 60], [60, 75], [75, 100], [85, 100]]
 
 
 class FanTests(unittest.TestCase):
+    def test_safe_preset_curves_are_distinct_and_independently_validated(self):
+        self.assertEqual(set(FAN_PRESETS), {'calm', 'balanced', 'cool'})
+        first_point_speeds = []
+        for key in FAN_PRESETS:
+            points = preset_points(key)
+            self.assertEqual(helper.validate_curve(points), points)
+            first_point_speeds.append(points[0][1])
+            points[0][1] = 99
+            self.assertNotEqual(preset_points(key)[0][1], 99)
+        self.assertEqual(first_point_speeds, sorted(first_point_speeds))
+        self.assertIsNone(preset_points('unknown'))
+
     def test_only_complete_peci_pwm_channel_is_offered(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

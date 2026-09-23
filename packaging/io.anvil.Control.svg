@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Anvil Control">
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="#101010" stroke="#ffd438" stroke-width="5"/>
+  <path fill="#ffd438" fill-rule="evenodd" d="M64 25 105 102H83l-8-16H53l-8 16H23L64 25Zm0 30-12 25h24L64 55Z"/>
+  <path d="M31 108h66" stroke="#ffd438" stroke-width="5" stroke-linecap="round"/>
+</svg>
