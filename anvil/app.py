@@ -1306,7 +1306,7 @@ class Window(QMainWindow):
         elif not controllable and not supports_fan_write(self.monitor.identity['board'], self.monitor.identity['vendor']):
             self.fan_feedback.setText('Bu ASUS modelinde fan yazma profili henüz doğrulanmadı. Hız eğrilerini inceleyebilirsiniz; uygulama kapalı.')
         elif not controllable:
-            self.fan_feedback.setText('Doğrulanmış kartta güvenli fan kanalı bulunamadı. NCT6798, PWM modu ve PECI sıcaklık kaynağını kontrol edin.')
+            self.fan_feedback.setText('Doğrulanmış kartta güvenli fan kanalı bulunamadı. NCT6798, PWM/PECI ve donanım eğrisi geri okumalarını kontrol edin.')
         elif not helper_installed:
             self.fan_feedback.setText('Fan denetleyicisi bulundu. Kontrol için güncel RPM paketini kurun.')
         elif self.fan_feedback.text() == 'Kontrol desteği denetleniyor…':

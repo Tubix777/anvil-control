@@ -28,6 +28,14 @@ def supports_fan_write(board, vendor):
     return is_asus_vendor(vendor) and board in FAN_PROFILES
 
 
+def _raw_int(path):
+    """Read an integer sysfs value as the privileged helper would."""
+    try:
+        return int(read(path))
+    except ValueError:
+        return None
+
+
 def fan_result(ok, output, error, action, channel):
     """Report success only for a matching, read-back-verified helper response."""
     if not ok:
@@ -67,17 +75,24 @@ def channels(root=Path('/sys/class/hwmon'), board=None, vendor=None):
             required += [f'{stem}_auto_point{i}_{suffix}' for i in range(1, 6)
                          for suffix in ('temp', 'pwm')]
             source = read(hw/f'{stem}_temp_sel')
-            if (all((hw/name).exists() for name in required) and source.isdecimal()
-                    and 'PECI' in read(hw/f'temp{source}_label')
-                    and number(hw/f'temp{source}_input') is not None
-                    and read(hw/f'{stem}_mode') == '1'
-                    and read(hw/f'{stem}_enable') in ('0', '5')):
-                found.append({'channel':n, 'rpm':number(hw/f'fan{n}_input'),
-                              'mode':read(hw/f'pwm{n}_enable'), 'duty':number(hw/f'pwm{n}', 2.55),
-                              'source_label':read(hw/f'temp{source}_label'),
-                              'source_temp':number(hw/f'temp{source}_input', 1000),
-                              'step_up_ms':number(hw/f'{stem}_step_up_time'),
-                              'step_down_ms':number(hw/f'{stem}_step_down_time'),
-                              'points':[[number(hw/f'pwm{n}_auto_point{i}_temp', 1000),
-                                         number(hw/f'pwm{n}_auto_point{i}_pwm', 2.55)] for i in range(1, 6)]})
+            if not all((hw/name).exists() for name in required) or not source.isdecimal():
+                continue
+            source_label = read(hw/f'temp{source}_label')
+            source_temp = _raw_int(hw/f'temp{source}_input')
+            mode = read(hw/f'{stem}_enable')
+            if ('PECI' not in source_label or source_temp is None or not 0 <= source_temp < 110000
+                    or read(hw/f'{stem}_mode') != '1' or mode not in ('0', '5')):
+                continue
+            raw_points = [(_raw_int(hw/f'{stem}_auto_point{i}_temp'),
+                           _raw_int(hw/f'{stem}_auto_point{i}_pwm')) for i in range(1, 6)]
+            # BIOS critical points need not be ordered like our writable presets.
+            if any(temp is None or speed is None or not 0 <= temp <= 127000
+                   or not 0 <= speed <= 255 for temp, speed in raw_points):
+                continue
+            found.append({'channel':n, 'rpm':number(hw/f'fan{n}_input'),
+                          'mode':mode, 'duty':number(hw/f'pwm{n}', 2.55),
+                          'source_label':source_label, 'source_temp':source_temp/1000,
+                          'step_up_ms':number(hw/f'{stem}_step_up_time'),
+                          'step_down_ms':number(hw/f'{stem}_step_down_time'),
+                          'points':[[temp/1000, speed/2.55] for temp, speed in raw_points]})
     return found

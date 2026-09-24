@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.12.2 — 2026-09-24
+
+- Doğrulanmış kartta PECI sıcaklığı veya beş donanım eğrisi noktası bozuk, eksik ya da aralık dışındaysa ilgili kanal artık yazılabilir olarak sunulmuyor. Sağlam diğer kanal görünmeye devam eder.
+- BIOS’un hazır eğrisinin son kritik sıcaklık noktası, kullanıcı tarafından yazılacak yeni eğrinin kısıtlarıyla karıştırılmıyor; gerçek donanımda görülen sırası farklı ve 125 °C kritik noktalar okunabilir kalıyor.
+- Bozuk `NaN`/sonsuz/sayı olmayan sysfs verileri ve iki kanalın birbirinden bağımsız değerlendirilmesi için testler eklendi. Ayrıcalıklı fan yardımcısı ve donanım ayarları değiştirilmedi.
+
 ## 0.12.1 — 2026-09-24
 
 - Fan kanalını seçip donanım eğrisini incelemek artık yazma yardımcısının kurulu olmasına veya başka bir donanım işleminin bitmesine bağlı değil. Yazma düğmeleri bu durumlarda kapalı kalır; fan donanımı değiştirilmez.

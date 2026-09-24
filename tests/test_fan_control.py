@@ -104,6 +104,46 @@ class FanTests(unittest.TestCase):
             self.assertIsNone(item['step_down_ms'])
             self.assertEqual(item['source_temp'], 40.0)
 
+    def test_malformed_readback_never_offers_a_write_channel(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hw = self.fixture(root)
+            (hw/'name').write_text('nct6798')
+            for name, bad_value in [
+                ('temp8_input', 'NaN'), ('temp8_input', '-1000'),
+                ('temp8_input', '110000'),
+                ('pwm1_auto_point1_temp', 'NaN'),
+                ('pwm1_auto_point2_temp', 'not-a-number'),
+                ('pwm1_auto_point3_temp', '-1'),
+                ('pwm1_auto_point4_temp', '127001'),
+                ('pwm1_auto_point5_pwm', 'inf'),
+                ('pwm1_auto_point5_pwm', '256'),
+            ]:
+                path = hw/name
+                original = path.read_text()
+                with self.subTest(name=name, bad_value=bad_value):
+                    path.write_text(bad_value)
+                    self.assertEqual(channels(root, 'PRIME H610M-K D4', 'ASUS'), [])
+                path.write_text(original)
+
+            # A real BIOS critical point may follow a higher fourth threshold.
+            (hw/'pwm1_auto_point4_temp').write_text('100000')
+            (hw/'pwm1_auto_point5_temp').write_text('85000')
+            item, = channels(root, 'PRIME H610M-K D4', 'ASUS')
+            self.assertEqual(item['points'][3][0], 100.0)
+            self.assertEqual(item['points'][4][0], 85.0)
+
+            for suffix in ('enable', 'mode', 'temp_sel'):
+                (hw/f'pwm2_{suffix}').write_text((hw/f'pwm1_{suffix}').read_text())
+            for i in range(1, 6):
+                for suffix in ('temp', 'pwm'):
+                    (hw/f'pwm2_auto_point{i}_{suffix}').write_text(
+                        (hw/f'pwm1_auto_point{i}_{suffix}').read_text())
+            (hw/'pwm2_auto_point5_temp').write_text('125000')
+            self.assertEqual([item['channel'] for item in channels(root, 'PRIME H610M-K D4', 'ASUS')], [1, 2])
+            (hw/'pwm1_auto_point1_temp').write_text('NaN')
+            self.assertEqual([item['channel'] for item in channels(root, 'PRIME H610M-K D4', 'ASUS')], [2])
+
     def test_curve_full_and_restore(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
