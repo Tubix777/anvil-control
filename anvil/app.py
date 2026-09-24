@@ -624,6 +624,7 @@ class Window(QMainWindow):
         self.history = deque(maxlen=3600)
         self.fan_rpm_history = FanRpmHistory()
         self.fan_readback_state = None
+        self.fan_curve_readback_pending = False
         self.profile_job = None
         self.profile_pending = False
         self.hardware_job = None
@@ -1210,9 +1211,12 @@ class Window(QMainWindow):
                 reading += ' · son okuma'
             if self.fan_channel.itemText(index) != reading:
                 self.fan_channel.setItemText(index, reading)
-        curve = hardware_fan_curve_text(item)
-        if item is not None and self.fan_readback_state:
-            curve = 'Son başarılı donanım okuması; güncel olmayabilir.\n' + curve
+        if self.fan_curve_readback_pending:
+            curve = 'Fan işlemi sürüyor veya yeni donanım okuması bekleniyor; eğri geçici olarak gösterilmiyor.'
+        else:
+            curve = hardware_fan_curve_text(item)
+            if item is not None and self.fan_readback_state:
+                curve = 'Son başarılı donanım okuması; güncel olmayabilir.\n' + curve
         self.fan_curve_info.setText(curve)
         self.fan_trend_info.setText(self.fan_readback_state or self.fan_rpm_history.summary(channel))
 
@@ -1227,7 +1231,7 @@ class Window(QMainWindow):
     def fan_action(self, action, points=None, preset_name=None, expected_channel=None):
         helper = '/usr/libexec/anvil-fan-helper'
         channel = self.fan_channel.currentData()
-        if self.paused or self.fan_readback_state:
+        if self.paused or self.fan_readback_state or self.fan_curve_readback_pending:
             self.fan_feedback.setText('Fan ayarı için yeni başarılı ölçüm bekleniyor; işlem iptal edildi.')
             return
         if expected_channel is not None and channel != expected_channel:
@@ -1244,6 +1248,10 @@ class Window(QMainWindow):
         args = [helper, str(channel), action]
         if points is not None:
             args.append(json.dumps(points))
+        self.fan_curve_readback_pending = True
+        for control in self.fan_controls:
+            control.setEnabled(False)
+        self.update_current_fan_curve()
         self.fan_feedback.setText(f'Kanal {channel}: donanıma yazma ve geri okuma bekleniyor…')
         def done(ok, out, err):
             verified, message = fan_result(ok, out, err, action, channel)
@@ -1351,7 +1359,11 @@ class Window(QMainWindow):
         self.fan_readings.setVisible(bool(fans))
         pwm = list(Path('/sys/class/hwmon').glob('hwmon*/pwm[0-9]'))
         self.monitor.identity['pwm'] = [str(p) for p in pwm]
+        fan_write_active = self.hardware_busy()
         controllable = channels()
+        # A read overlapping a fan write may contain a mixture of old and new curve points.
+        if self.fan_curve_readback_pending and not fan_write_active and not self.hardware_busy():
+            self.fan_curve_readback_pending = False
         available_channels = [item['channel'] for item in controllable]
         shown_channels = [self.fan_channel.itemData(i) for i in range(self.fan_channel.count())]
         selected = self.fan_channel.currentData()

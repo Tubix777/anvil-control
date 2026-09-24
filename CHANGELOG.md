@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.13.10 — 2026-09-24
+
+- Fan işlemi sürerken veya tamamlanıp yeni okuma beklenirken mevcut eğri noktaları gösterilmiyor; işlem ortasındaki karma eski/yeni noktalar etkin donanım eğrisi gibi sunulmuyor.
+- İşlemle çakışmayan yeni başarılı ölçümden sonra seçili kanalın eğrisi yeniden gösteriliyor. Bu arada fan ayarı düğmeleri kapalı kalıyor.
+- Fan donanımına yazma, güç profili ve ayrıcalıklı yardımcının yetkileri değişmedi.
+
 ## 0.13.9 — 2026-09-24
 
 - Genel hwmon sensörlerinde negatif fan RPM okumaları artık geçerli devir sayılmıyor; sensör tablosu ve fan sayacı bu geçersiz değeri göstermiyor.

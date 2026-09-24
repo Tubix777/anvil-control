@@ -380,6 +380,51 @@ class FanUiTests(unittest.TestCase):
             finally:
                 window.quit_app()
 
+    def test_partial_curve_during_fan_action_waits_for_fresh_readback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                sample = dict(time=100.0, cpu_usage=None, cpu_temp=None, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[], gpu={}, profile=None, profiles=[])
+                original = channel(1, 900)
+                partial = channel(1, 1400,
+                                  [[20, 20], [35, 40], [50, 55], [65, 80], [70, 100]], mode='0')
+                finished = channel(1, 1300,
+                                   [[30, 50], [45, 60], [60, 75], [75, 100], [85, 100]])
+                with (patch('anvil.app.channels', return_value=[original]),
+                      patch('anvil.app.Path.exists', return_value=True)):
+                    window.update_data(sample)
+                    self.assertIn('Donanımdan okunan etkin otomatik eğri', window.fan_curve_info.text())
+                    pending = {}
+                    def capture(program, arguments, callback):
+                        pending['callback'] = callback
+                    with patch.object(window, 'run_hardware', side_effect=capture) as run:
+                        window.fan_action('full')
+                        self.assertIn('eğri geçici olarak gösterilmiyor', window.fan_curve_info.text())
+                        self.assertTrue(all(not control.isEnabled() for control in window.fan_controls))
+                        window.fan_action('full')
+                        self.assertEqual(run.call_count, 1)
+
+                with (patch.object(window, 'hardware_busy', return_value=True),
+                      patch('anvil.app.channels', return_value=[partial])):
+                    window.update_data(dict(sample, time=102.0))
+                    self.assertNotIn('Donanımdan okunan', window.fan_curve_info.text())
+                    self.assertNotIn('35 °C → ≈%40', window.fan_curve_info.text())
+                pending['callback'](False, '', 'simulated failure')
+                window.update_current_fan_curve()
+                self.assertIn('yeni donanım okuması bekleniyor', window.fan_curve_info.text())
+                with (patch('anvil.app.channels', return_value=[finished]),
+                      patch('anvil.app.Path.exists', return_value=True)):
+                    window.update_data(dict(sample, time=104.0))
+                self.assertIn('30 °C → ≈%50', window.fan_curve_info.text())
+                self.assertNotIn('eğri geçici olarak gösterilmiyor', window.fan_curve_info.text())
+                self.assertTrue(all(control.isEnabled() for control in window.fan_controls))
+            finally:
+                window.quit_app()
+
     def test_async_feedback_keeps_original_channel_after_selection_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
