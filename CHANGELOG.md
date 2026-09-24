@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.12.3 — 2026-09-24
+
+- Fan işlemi sürerken kanal seçimi değişse bile bekleme ve sonuç mesajları işlemin başlatıldığı kanal numarasını gösteriyor.
+- Özel eğri penceresi açıkken seçili kanal değişirse yanlış kanala yazma önleniyor; işlem iptal edilip eğrinin yeniden açılması isteniyor. Kabul anında kanal bir kez daha denetleniyor.
+- Bu iki durum için donanım komutu çalıştırmayan arayüz testleri eklendi. Fan yazma yardımcısı, güç profili ve donanım ayarları değiştirilmedi.
+
 ## 0.12.2 — 2026-09-24
 
 - Doğrulanmış kartta PECI sıcaklığı veya beş donanım eğrisi noktası bozuk, eksik ya da aralık dışındaysa ilgili kanal artık yazılabilir olarak sunulmuyor. Sağlam diğer kanal görünmeye devam eder.

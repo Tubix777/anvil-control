@@ -1,4 +1,5 @@
 """Read-only fan display tests; no privileged helper or hardware writes."""
+import json
 import os
 import tempfile
 import unittest
@@ -8,7 +9,7 @@ from unittest.mock import patch
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 from PySide6.QtCore import QSettings
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QDialogButtonBox, QLabel
 
 from anvil.app import (Window, configure_style, fan_channel_label,
                        hardware_fan_curve_text, preferred_fan_channel)
@@ -90,6 +91,75 @@ class FanUiTests(unittest.TestCase):
                     window.update_data(sample)
                 self.assertIsNone(window.fan_channel.currentData())
                 self.assertIn('yalnızca önizlemedir', window.fan_curve_info.text())
+            finally:
+                window.quit_app()
+
+    def test_async_feedback_keeps_original_channel_after_selection_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                window.fan_channel.clear()
+                window.fan_channel.addItem('Kanal 1', 1)
+                window.fan_channel.addItem('Kanal 2', 2)
+                pending = {}
+                def capture(program, arguments, callback):
+                    pending.update(program=program, arguments=arguments, callback=callback)
+                with (patch('anvil.app.channels', return_value=[channel(1, 500), channel(2, 1400)]),
+                      patch('anvil.app.Path.exists', return_value=True),
+                      patch.object(window, 'run_hardware', side_effect=capture),
+                      patch.object(window, 'log_event')):
+                    window.fan_action('full')
+                    self.assertEqual(pending['arguments'][1:3], ['1', 'full'])
+                    self.assertIn('Kanal 1:', window.fan_feedback.text())
+                    window.fan_channel.setCurrentIndex(1)
+                    verified = {'pwm1_enable': 0}
+                    for i in range(1, 6):
+                        verified[f'pwm1_auto_point{i}_temp'] = i*10000
+                        verified[f'pwm1_auto_point{i}_pwm'] = i*40
+                    pending['callback'](True, json.dumps({'ok': True, 'channel': 1,
+                                                          'action': 'full', 'verified': verified}), '')
+                self.assertIn('Kanal 1:', window.fan_feedback.text())
+                self.assertNotIn('Kanal 2:', window.fan_feedback.text())
+                self.assertIn('geri okunarak doğrulandı', window.fan_feedback.text())
+            finally:
+                window.quit_app()
+
+    def test_curve_editor_refuses_a_changed_channel(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                window.fan_channel.clear()
+                window.fan_channel.addItem('Kanal 1', 1)
+                window.fan_channel.addItem('Kanal 2', 2)
+                def change_then_accept(dialog):
+                    self.assertIn('Kanal 1', dialog.windowTitle())
+                    window.fan_channel.setCurrentIndex(1)
+                    dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Ok).click()
+                    self.assertTrue(any('Fan kanalı değişti' in widget.text()
+                                        for widget in dialog.findChildren(QLabel)))
+                with (patch('anvil.app.QDialog.exec', new=change_then_accept),
+                      patch.object(window, 'fan_action') as action):
+                    window.edit_curve()
+                    action.assert_not_called()
+                with (patch('anvil.app.channels') as scan,
+                      patch.object(window, 'run_hardware') as run):
+                    window.fan_action('curve', [[30, 50], [45, 55], [60, 70], [75, 100], [85, 100]],
+                                      expected_channel=1)
+                    scan.assert_not_called()
+                    run.assert_not_called()
+                self.assertIn('işlem iptal edildi', window.fan_feedback.text())
+
+                window.fan_channel.setCurrentIndex(0)
+                def accept_unchanged(dialog):
+                    dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Ok).click()
+                with (patch('anvil.app.QDialog.exec', new=accept_unchanged),
+                      patch.object(window, 'fan_action') as action):
+                    window.edit_curve()
+                    self.assertEqual(action.call_args.kwargs['expected_channel'], 1)
             finally:
                 window.quit_app()
 

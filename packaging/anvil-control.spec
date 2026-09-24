@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.12.2
+Version:        0.12.3
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,9 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.12.3-1
+- Identify the captured fan channel in pending and completed action feedback.
+- Cancel custom curve application if the selected channel changes while editing.
 * Thu Sep 24 2026 Anvil contributors - 0.12.2-1
 - Hide write-ready fan channels when PECI or hardware curve readback is malformed.
 - Preserve valid BIOS critical points without applying writable preset rules.

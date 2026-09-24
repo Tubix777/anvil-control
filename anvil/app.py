@@ -1109,8 +1109,9 @@ class Window(QMainWindow):
             timer.start(timeout)
 
     def edit_curve(self):
+        channel = self.fan_channel.currentData()
         dialog = QDialog(self)
-        dialog.setWindowTitle(f'Kanal {self.fan_channel.currentData()} · Otomatik fan eğrisi')
+        dialog.setWindowTitle(f'Kanal {channel} · Otomatik fan eğrisi')
         layout = QVBoxLayout(dialog)
         layout.addWidget(label('Donanım kontrollü eğri: sıcaklıklar artmalı, hız azalmamalı.\nSon iki nokta %100; en yüksek sıcaklık 85 °C.'))
         grid = QGridLayout()
@@ -1136,12 +1137,15 @@ class Window(QMainWindow):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.rejected.connect(dialog.reject)
         def accept():
+            if self.fan_channel.currentData() != channel:
+                warning.setText('Fan kanalı değişti. Bu pencereyi kapatıp seçili kanal için yeniden açın.')
+                return
             points = [[t.value(), s.value()] for t, s in zip(temps, speeds)]
             if any(points[i][0] >= points[i+1][0] or points[i][1] > points[i+1][1] for i in range(4)):
                 warning.setText('Sıcaklıklar kesin artmalı, hızlar azalmamalı.')
                 return
             dialog.accept()
-            self.fan_action('curve', points)
+            self.fan_action('curve', points, expected_channel=channel)
         buttons.accepted.connect(accept)
         layout.addWidget(buttons)
         dialog.exec()
@@ -1165,9 +1169,12 @@ class Window(QMainWindow):
             return
         self.fan_action('curve', points, FAN_PRESETS[key][0])
 
-    def fan_action(self, action, points=None, preset_name=None):
+    def fan_action(self, action, points=None, preset_name=None, expected_channel=None):
         helper = '/usr/libexec/anvil-fan-helper'
         channel = self.fan_channel.currentData()
+        if expected_channel is not None and channel != expected_channel:
+            self.fan_feedback.setText('Fan kanalı değişti; işlem iptal edildi. Eğriyi seçili kanal için yeniden açın.')
+            return
         if channel not in [item['channel'] for item in channels()]:
             self.fan_feedback.setText('Seçili kanal güvenli fan kontrolü için uygun değil; arayüzü yeniden kontrol edin.')
             return
@@ -1179,11 +1186,12 @@ class Window(QMainWindow):
         args = [helper, str(channel), action]
         if points is not None:
             args.append(json.dumps(points))
-        self.fan_feedback.setText('Donanıma yazma ve geri okuma bekleniyor…')
+        self.fan_feedback.setText(f'Kanal {channel}: donanıma yazma ve geri okuma bekleniyor…')
         def done(ok, out, err):
             verified, message = fan_result(ok, out, err, action, channel)
             if verified and preset_name:
                 message = f'{preset_name} eğrisi: {message}'
+            message = f'Kanal {channel}: {message}'
             self.fan_feedback.setText(message)
             self.log_event(message)
         self.run_hardware('/usr/bin/pkexec', args, done)
