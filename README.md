@@ -33,7 +33,7 @@ Bu nedenle uygulama farklı ASUS sistemlerinde genel izleme için kullanılabili
 [Sürümlerden](https://github.com/Tubix777/anvil-control/releases) RPM’yi indirin:
 
 ```bash
-sudo dnf install ./anvil-control-0.13.2-1.fc44.noarch.rpm
+sudo dnf install ./anvil-control-0.13.3-1.fc44.noarch.rpm
 anvil-control
 ```
 
@@ -52,6 +52,8 @@ Ana sayfadaki anakartın katmanlı üstten görünüşü CPU, RAM, PCIe, M.2 ve 
 Ana sayfadaki fan merkezinde **Sakin**, **Dengeli** ve **Yüksek soğutma** hazır sıcaklık eğrileri seçilebilir; **Eğriyi uygula** seçili, doğrulanmış anakart kanalına yazar. Bunlar sabit RPM hedefleri değildir. 75 ve 85 °C noktalarında tüm hazır eğriler %100 PWM uygular. **Önceki ayarlar** bu açılıştaki ilk değişiklik öncesine döner. GPU fanı için yazma denetimi sunulmaz.
 
 Doğrulanmış fan kanallarının seçiminde anlık RPM gösterilir. Yalnız bir kanal dönüyorsa başlangıçta o öne alınır; elle seçtiğiniz kanal korunur. Seçili kanalın donanımdan okunan **mevcut eğrisi** ve varsa PECI kaynak sıcaklığı ile fan tepki süreleri hazır eğri önizlemesinden ayrı görünür. Bu değerler ani fan hızlanmasını incelemeye yardımcı olur; fan tepki süresini bu sürümde değiştirmez.
+
+NCT6798 sürücüsü bir kanal için isteğe bağlı **ikincil sıcaklık kaynağı** bildiriyorsa seçim ve okunabilen sensör sıcaklığı da gösterilir. Alanın hiç sunulmaması devre dışı olduğu anlamına gelmez; `0` sürücüye göre devre dışı/atanmamış seçimi, geçersiz değer ise okunamayan seçim olarak belirtilir. İkincil kaynağın fan hızındaki değişime gerçekten neden olduğu bu okumayla kanıtlanmaz. Tam hız modunda otomatik eğri etkin değildir.
 
 NCT6798 Smart Fan IV’te okunan ilk dört nokta normal eğridir; beşinci nokta ayrı bir kritik sıcaklık eşiğidir. Arayüz kritik PWM geri okumasını gösterir, ancak eşikte mutlaka %100 devir olacağını iddia etmez. Kritik eşik dördüncü noktadan düşük sıcaklıkta bulunabilir; bu yüzden beşinci nokta normal artan eğri adımı gibi yorumlanmamalıdır.
 

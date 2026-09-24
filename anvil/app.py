@@ -448,6 +448,22 @@ def hardware_fan_curve_text(item):
     source_temp = item.get('source_temp')
     if isinstance(source_temp, (int, float)) and math.isfinite(source_temp):
         details.append(f"Sıcaklık kaynağı: {item.get('source_label') or 'PECI'} {source_temp:g} °C")
+    secondary = item.get('secondary_source')
+    if isinstance(secondary, dict):
+        status = secondary.get('status')
+        if status == 'off':
+            details.append('İkincil sıcaklık kaynağı: sürücüye göre devre dışı/atanmamış (0)')
+        elif status == 'unreadable':
+            details.append('İkincil sıcaklık kaynağı: seçim okunamadı')
+        elif status == 'selected':
+            index = secondary.get('index')
+            if type(index) is int and 0 < index <= 31:
+                label = secondary.get('label') or f'Sensör {index}'
+                temperature = secondary.get('temp')
+                value = (f'{temperature:g} °C' if isinstance(temperature, (int, float))
+                         and math.isfinite(temperature) else 'sıcaklık okunamadı')
+                details.append(f'İkincil kaynak seçimi: {label} ({value})'
+                               + (' · tam hız modunda otomatik kontrol etkin değil' if mode == '0' else ''))
     up, down = item.get('step_up_ms'), item.get('step_down_ms')
     if all(isinstance(value, (int, float)) and math.isfinite(value) and value >= 0 for value in (up, down)):
         details.append(f'Fan tepki süresi: hızlanma {up:g} ms / yavaşlama {down:g} ms'

@@ -104,6 +104,44 @@ class FanTests(unittest.TestCase):
             self.assertIsNone(item['step_down_ms'])
             self.assertEqual(item['source_temp'], 40.0)
 
+    def test_optional_secondary_source_never_hides_an_otherwise_valid_channel(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hw = self.fixture(root)
+            (hw/'name').write_text('nct6798')
+            for path in list(hw.glob('pwm1_*')):
+                (hw/path.name.replace('pwm1_', 'pwm2_', 1)).write_text(path.read_text())
+
+            def selected():
+                items = channels(root, 'PRIME H610M-K D4', 'ASUS')
+                self.assertEqual([item['channel'] for item in items], [1, 2])
+                self.assertNotIn('secondary_source', items[0])
+                return items[1]
+
+            self.assertNotIn('secondary_source', selected())
+            selection = hw/'pwm2_weight_temp_sel'
+            selection.write_text('0')
+            self.assertEqual(selected()['secondary_source'], {'status': 'off'})
+
+            selection.write_text('6')
+            (hw/'temp6_label').write_text('System')
+            (hw/'temp6_input').write_text('35500')
+            self.assertEqual(selected()['secondary_source'],
+                             {'status': 'selected', 'index': 6, 'label': 'System', 'temp': 35.5})
+            for bad_temp in ('NaN', '128000'):
+                with self.subTest(bad_temp=bad_temp):
+                    (hw/'temp6_input').write_text(bad_temp)
+                    self.assertIsNone(selected()['secondary_source']['temp'])
+            (hw/'temp6_input').unlink()
+            self.assertIsNone(selected()['secondary_source']['temp'])
+
+            for bad_selection in ('not-a-number', '-1', '999'):
+                with self.subTest(bad_selection=bad_selection):
+                    selection.write_text(bad_selection)
+                    self.assertEqual(selected()['secondary_source'], {'status': 'unreadable'})
+            selection.unlink()
+            self.assertNotIn('secondary_source', selected())
+
     def test_ambiguous_controller_identity_never_offers_writes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

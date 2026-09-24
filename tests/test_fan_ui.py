@@ -62,6 +62,23 @@ class FanUiTests(unittest.TestCase):
         self.assertNotIn('85 °C → ≈%70', text)
         self.assertNotIn('tam hız', text)
 
+    def test_optional_secondary_source_is_not_mistaken_for_active_fan_control(self):
+        first = channel(1, 500)
+        self.assertNotIn('İkincil', hardware_fan_curve_text(first))
+        second = channel(2, 1400)
+        second['secondary_source'] = {'status': 'off'}
+        self.assertIn('devre dışı/atanmamış (0)', hardware_fan_curve_text(second))
+        second['secondary_source'] = {'status': 'unreadable'}
+        self.assertIn('seçim okunamadı', hardware_fan_curve_text(second))
+        second['secondary_source'] = {'status': 'selected', 'index': 6,
+                                      'label': 'System', 'temp': 35.5}
+        self.assertIn('İkincil kaynak seçimi: System (35.5 °C)', hardware_fan_curve_text(second))
+        second['secondary_source']['temp'] = None
+        self.assertIn('System (sıcaklık okunamadı)', hardware_fan_curve_text(second))
+        second['mode'] = '0'
+        self.assertIn('tam hız modunda otomatik kontrol etkin değil',
+                      hardware_fan_curve_text(second))
+
     def test_selection_and_live_readback_follow_selected_channel(self):
         with tempfile.TemporaryDirectory() as directory:
             settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)

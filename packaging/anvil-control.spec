@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.13.2
+Version:        0.13.3
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.13.3-1
+- Show optional secondary fan temperature-source selection and valid reading.
+- Distinguish absent, disabled and unreadable secondary-source attributes.
+- Leave fan writes, power profiles and helper privileges unchanged.
 * Thu Sep 24 2026 Anvil contributors - 0.13.2-1
 - Label NCT6798 point five as a separate critical threshold and show its raw PWM.
 - Reject non-finite sysfs telemetry rather than displaying invalid values.

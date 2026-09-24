@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.13.3 — 2026-09-24
+
+- NCT6798’in sunduğu isteğe bağlı ikincil sıcaklık kaynağı seçimi, sensör etiketi ve geçerli sıcaklığı seçili kanalın donanım eğrisi yanında salt okunur gösteriliyor. Alan yoksa kapalı varsayılmıyor; devre dışı/atanmamış seçim ve okunamayan veri ayrı belirtiliyor.
+- İkincil alanın eksik veya bozuk olması sağlam fan kanalını gizlemiyor. Tam hız modunda seçili kaynak otomatik kontrol uygulanıyormuş gibi sunulmuyor; fan hızlanmasının nedeni olduğu iddia edilmiyor.
+- Fan donanımına yazma, güç profili ve yetki modeli değişmedi.
+
 ## 0.13.2 — 2026-09-24
 
 - NCT6798 Smart Fan IV donanım eğrisindeki beşinci nokta artık normal eğri adımı yerine ayrı **kritik eşik** olarak gösteriliyor. Eşikteki PWM geri okuması aynen belirtiliyor; %100’den düşükse tam hız varsayılmıyor.

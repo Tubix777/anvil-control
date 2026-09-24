@@ -36,6 +36,22 @@ def _raw_int(path):
         return None
 
 
+def _secondary_source(hw, stem):
+    """Read optional NCT6798 weighted temperature selection without gating a channel."""
+    selection_path = hw/f'{stem}_weight_temp_sel'
+    if not selection_path.exists():
+        return None
+    index = _raw_int(selection_path)
+    if index is None or not 0 <= index <= 31:
+        return {'status': 'unreadable'}
+    if index == 0:
+        return {'status': 'off'}
+    raw_temp = _raw_int(hw/f'temp{index}_input')
+    return {'status': 'selected', 'index': index,
+            'label': read(hw/f'temp{index}_label') or None,
+            'temp': raw_temp/1000 if raw_temp is not None and -128000 <= raw_temp < 128000 else None}
+
+
 def fan_result(ok, output, error, action, channel):
     """Report success only for a matching, read-back-verified helper response."""
     if not ok:
@@ -91,10 +107,14 @@ def channels(root=Path('/sys/class/hwmon'), board=None, vendor=None):
         if any(temp is None or speed is None or not 0 <= temp <= 127000
                or not 0 <= speed <= 255 for temp, speed in raw_points):
             continue
-        found.append({'channel':n, 'rpm':number(hw/f'fan{n}_input'),
-                      'mode':mode, 'duty':number(hw/f'pwm{n}', 2.55),
-                      'source_label':source_label, 'source_temp':source_temp/1000,
-                      'step_up_ms':number(hw/f'{stem}_step_up_time'),
-                      'step_down_ms':number(hw/f'{stem}_step_down_time'),
-                      'points':[[temp/1000, speed/2.55] for temp, speed in raw_points]})
+        item = {'channel':n, 'rpm':number(hw/f'fan{n}_input'),
+                'mode':mode, 'duty':number(hw/f'pwm{n}', 2.55),
+                'source_label':source_label, 'source_temp':source_temp/1000,
+                'step_up_ms':number(hw/f'{stem}_step_up_time'),
+                'step_down_ms':number(hw/f'{stem}_step_down_time'),
+                'points':[[temp/1000, speed/2.55] for temp, speed in raw_points]}
+        secondary = _secondary_source(hw, stem)
+        if secondary is not None:
+            item['secondary_source'] = secondary
+        found.append(item)
     return found
