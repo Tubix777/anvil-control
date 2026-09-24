@@ -33,7 +33,7 @@ Bu nedenle uygulama farklı ASUS sistemlerinde genel izleme için kullanılabili
 [Sürümlerden](https://github.com/Tubix777/anvil-control/releases) RPM’yi indirin:
 
 ```bash
-sudo dnf install ./anvil-control-0.12.3-1.fc44.noarch.rpm
+sudo dnf install ./anvil-control-0.12.4-1.fc44.noarch.rpm
 anvil-control
 ```
 
@@ -67,6 +67,8 @@ Yazma profili kesin anakart adına ve NCT6798’e kilitlidir. Yalnızca PWM, PEC
 
 Mevcut BIOS eğrisinin son kritik noktası, uygulamanın yeni eğri yazma kurallarından farklı olabilir. Uygulama okunan beş noktayı gösterirken bozuk veya aralık dışı PECI/eğri verisi olan kanalı yazmaya hazır olarak sunmaz; diğer sağlıklı kanallar bundan etkilenmez.
 
+Aynı sistemde birden fazla NCT6798 denetleyici kimliği varsa kanal eşlemesi belirsiz sayılır ve yazma denetimleri açılmaz. Bu kural ayrıcalıklı fan yardımcısının donanım doğrulamasıyla aynıdır.
+
 Başka ASUS modellerinde sensörler görünse dahi fan ayarı yazımı kapalıdır; o kart henüz doğrulanmamıştır.
 
 ## Test ve sınırlar
@@ -76,7 +78,7 @@ python3 -m unittest discover -s tests -v
 QT_QPA_PLATFORM=offscreen PYTHONPATH=. python3 tests/smoke_ui.py
 ```
 
-40 birim testi ve gerçek sensör telemetrisiyle beş bölümlü arayüz testi. Smoke testi yalnızca mevcut sistemde çalışır. Bu bağımsız alpha proje ASUS/Fedora tarafından onaylanmamıştır. Anakart çizimi temsili şemadır, pin bağlantısı değildir. AMD GPU desteği sysfs fikstürleriyle sınandı; gerçek AMD donanımında henüz doğrulanmadı. JSON tanılama raporunu paylaşmadan önce içeriğini inceleyin; raporda kart/BIOS, PCI ve sensör bilgileri bulunur.
+41 birim testi ve gerçek sensör telemetrisiyle beş bölümlü arayüz testi. Smoke testi yalnızca mevcut sistemde çalışır. Bu bağımsız alpha proje ASUS/Fedora tarafından onaylanmamıştır. Anakart çizimi temsili şemadır, pin bağlantısı değildir. AMD GPU desteği sysfs fikstürleriyle sınandı; gerçek AMD donanımında henüz doğrulanmadı. JSON tanılama raporunu paylaşmadan önce içeriğini inceleyin; raporda kart/BIOS, PCI ve sensör bilgileri bulunur.
 
 ## English
 

@@ -66,33 +66,35 @@ def channels(root=Path('/sys/class/hwmon'), board=None, vendor=None):
     if not supports_fan_write(board, vendor):
         return found
     profile = FAN_PROFILES.get(board)
-    for hw in root.glob('hwmon*'):
-        if read(hw/'name') != profile['controller']:
+    matches = [hw for hw in root.glob('hwmon*') if read(hw/'name') == profile['controller']]
+    # The privileged helper also refuses ambiguous controller identities.
+    if len(matches) != 1:
+        return found
+    hw = matches[0]
+    for n in profile['channels']:
+        stem = f'pwm{n}'
+        required = [f'{stem}_{suffix}' for suffix in ('enable', 'mode', 'temp_sel')]
+        required += [f'{stem}_auto_point{i}_{suffix}' for i in range(1, 6)
+                     for suffix in ('temp', 'pwm')]
+        source = read(hw/f'{stem}_temp_sel')
+        if not all((hw/name).exists() for name in required) or not source.isdecimal():
             continue
-        for n in profile['channels']:
-            stem = f'pwm{n}'
-            required = [f'{stem}_{suffix}' for suffix in ('enable', 'mode', 'temp_sel')]
-            required += [f'{stem}_auto_point{i}_{suffix}' for i in range(1, 6)
-                         for suffix in ('temp', 'pwm')]
-            source = read(hw/f'{stem}_temp_sel')
-            if not all((hw/name).exists() for name in required) or not source.isdecimal():
-                continue
-            source_label = read(hw/f'temp{source}_label')
-            source_temp = _raw_int(hw/f'temp{source}_input')
-            mode = read(hw/f'{stem}_enable')
-            if ('PECI' not in source_label or source_temp is None or not 0 <= source_temp < 110000
-                    or read(hw/f'{stem}_mode') != '1' or mode not in ('0', '5')):
-                continue
-            raw_points = [(_raw_int(hw/f'{stem}_auto_point{i}_temp'),
-                           _raw_int(hw/f'{stem}_auto_point{i}_pwm')) for i in range(1, 6)]
-            # BIOS critical points need not be ordered like our writable presets.
-            if any(temp is None or speed is None or not 0 <= temp <= 127000
-                   or not 0 <= speed <= 255 for temp, speed in raw_points):
-                continue
-            found.append({'channel':n, 'rpm':number(hw/f'fan{n}_input'),
-                          'mode':mode, 'duty':number(hw/f'pwm{n}', 2.55),
-                          'source_label':source_label, 'source_temp':source_temp/1000,
-                          'step_up_ms':number(hw/f'{stem}_step_up_time'),
-                          'step_down_ms':number(hw/f'{stem}_step_down_time'),
-                          'points':[[temp/1000, speed/2.55] for temp, speed in raw_points]})
+        source_label = read(hw/f'temp{source}_label')
+        source_temp = _raw_int(hw/f'temp{source}_input')
+        mode = read(hw/f'{stem}_enable')
+        if ('PECI' not in source_label or source_temp is None or not 0 <= source_temp < 110000
+                or read(hw/f'{stem}_mode') != '1' or mode not in ('0', '5')):
+            continue
+        raw_points = [(_raw_int(hw/f'{stem}_auto_point{i}_temp'),
+                       _raw_int(hw/f'{stem}_auto_point{i}_pwm')) for i in range(1, 6)]
+        # BIOS critical points need not be ordered like our writable presets.
+        if any(temp is None or speed is None or not 0 <= temp <= 127000
+               or not 0 <= speed <= 255 for temp, speed in raw_points):
+            continue
+        found.append({'channel':n, 'rpm':number(hw/f'fan{n}_input'),
+                      'mode':mode, 'duty':number(hw/f'pwm{n}', 2.55),
+                      'source_label':source_label, 'source_temp':source_temp/1000,
+                      'step_up_ms':number(hw/f'{stem}_step_up_time'),
+                      'step_down_ms':number(hw/f'{stem}_step_down_time'),
+                      'points':[[temp/1000, speed/2.55] for temp, speed in raw_points]})
     return found

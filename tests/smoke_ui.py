@@ -70,6 +70,11 @@ def check():
                 w.export_csv()
             with metrics.open() as stream:
                 assert len(list(csv.reader(stream))) > 1
+        # A concurrent telemetry refresh can clear the synthetic GPU fan value
+        # before its animation timer ticks; finish sampling for this visual check.
+        w.timer.stop()
+        w.worker.wait()
+        app.processEvents()
         w.navigate(0)
         app.processEvents()
         w.rotor.set_speed(30)

@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.12.3
+Version:        0.12.4
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.12.4-1
+- Match the privileged helper's single-controller requirement in the fan UI.
+- Refuse ambiguous NCT6798 identities before offering write controls.
+- Stabilize the headless fan animation smoke check against telemetry refresh.
 * Thu Sep 24 2026 Anvil contributors - 0.12.3-1
 - Identify the captured fan channel in pending and completed action feedback.
 - Cancel custom curve application if the selected channel changes while editing.

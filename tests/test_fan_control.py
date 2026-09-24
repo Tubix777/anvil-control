@@ -104,6 +104,19 @@ class FanTests(unittest.TestCase):
             self.assertIsNone(item['step_down_ms'])
             self.assertEqual(item['source_temp'], 40.0)
 
+    def test_ambiguous_controller_identity_never_offers_writes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hw = self.fixture(root)
+            (hw/'name').write_text('nct6798')
+            duplicate = root/'hwmon2'
+            duplicate.mkdir()
+            for item in hw.iterdir():
+                (duplicate/item.name).write_text(item.read_text())
+            self.assertEqual(channels(root, 'PRIME H610M-K D4', 'ASUS'), [])
+            (duplicate/'name').write_text('coretemp')
+            self.assertEqual([item['channel'] for item in channels(root, 'PRIME H610M-K D4', 'ASUS')], [1])
+
     def test_malformed_readback_never_offers_a_write_channel(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

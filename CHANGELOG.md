@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.12.4 — 2026-09-24
+
+- Fan arayüzü, ayrıcalıklı yardımcıyla aynı denetleyici kuralını uyguluyor: sistemde birden fazla NCT6798 kimliği görünürse belirsiz kanalları yazılabilir olarak sunmuyor.
+- Bu durum ile farklı adlı ikinci bir sensörün normal çalışmayı engellememesi test edildi. Fan yardımcısı ve donanım ayarları değiştirilmedi.
+- Arayüz smoke testinin fan animasyonu denetimi, aynı anda gelen sensör yenilemesinden etkilenmeyecek şekilde kararlılaştırıldı.
+
 ## 0.12.3 — 2026-09-24
 
 - Fan işlemi sürerken kanal seçimi değişse bile bekleme ve sonuç mesajları işlemin başlatıldığı kanal numarasını gösteriyor.
