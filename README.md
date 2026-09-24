@@ -35,7 +35,7 @@ Doğrulanmamış ASUS kartlarında hazır eğri **önizlemesi**, kartın mevcut 
 [Sürümlerden](https://github.com/Tubix777/anvil-control/releases) RPM’yi indirin:
 
 ```bash
-sudo dnf install ./anvil-control-0.13.5-1.fc44.noarch.rpm
+sudo dnf install ./anvil-control-0.13.6-1.fc44.noarch.rpm
 anvil-control
 ```
 
@@ -63,7 +63,7 @@ NCT6798 Smart Fan IV’te okunan ilk dört nokta normal eğridir; beşinci nokta
 
 Seçili doğrulanmış kanalın son 60 saniyedeki RPM aralığı ve son iki geçerli ölçüm arasındaki fark da ana sayfada görünür. Bu geçmiş yalnızca uygulama açıkken bellekte tutulur, raporlara eklenmez ve ani artışın nedenini tek başına açıklamaz. Başka ASUS modellerinde yazılabilir kanal doğrulanmadıkça bu kanal geçmişi gösterilmez; genel sensör okumaları yine görülebilir.
 
-İzleme duraklatılırsa veya ölçüm alınamazsa RPM ve donanım eğrisi **son okuma** olarak işaretlenir; geçmiş canlıymış gibi gösterilmez. Yeniden başarılı ölçüm alındığında RPM değişimi yeni bir geçmişten hesaplanır.
+İzleme duraklatılırsa veya ölçüm alınamazsa genel fan devir listesi, seçili kanal RPM’si ve donanım eğrisi **son okuma** olarak işaretlenir; geçmiş canlıymış gibi gösterilmez. Yeniden başarılı ölçüm alındığında işaret kalkar ve RPM değişimi yeni bir geçmişten hesaplanır.
 
 Fan yazma yardımcısı kurulu olmasa veya başka bir donanım işlemi sürse de mevcut kanallar arasında geçiş yapıp eğrileri salt okunur biçimde inceleyebilirsiniz. Böyle durumlarda fan ayarı yazan düğmeler kapalı kalır.
 

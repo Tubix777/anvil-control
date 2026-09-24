@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.13.5
+Version:        0.13.6
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.13.6-1
+- Mark general fan RPM readings as stale while paused or after sample failures.
+- Clear the stale marker only after a successful new measurement.
+- Leave fan writes, power profiles and helper privileges unchanged.
 * Thu Sep 24 2026 Anvil contributors - 0.13.5-1
 - Clarify that unverified ASUS boards show only preset previews, not current curves.
 - Keep sensor monitoring distinct from unsupported fan writes.

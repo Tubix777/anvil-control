@@ -261,6 +261,50 @@ class FanUiTests(unittest.TestCase):
             finally:
                 window.quit_app()
 
+    def test_general_fan_readings_mark_stale_samples_until_new_measurement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                sample = dict(time=100.0, cpu_usage=None, cpu_temp=None, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[dict(chip='nct6798', label='CPU Fan',
+                                                       value=1500, unit='RPM', path='/mock/fan1_input')],
+                              gpu={}, profile=None, profiles=[])
+                with patch('anvil.app.channels', return_value=[]):
+                    window.update_data(sample)
+                self.assertIn('1500 RPM', window.fan_readings.text())
+                self.assertFalse(window.fan_readings.text().startswith('Son okuma · '))
+
+                with patch.object(window, 'refresh'):
+                    window.toggle_pause()
+                    self.assertIn('1500 RPM', window.fan_readings.text())
+                    self.assertTrue(window.fan_readings.text().startswith('Son okuma · '))
+                    window.toggle_pause()
+                    self.assertTrue(window.fan_readings.text().startswith('Son okuma · '))
+                    self.assertEqual(window.fan_readings.text().count('Son okuma · '), 1)
+
+                with patch('anvil.app.channels', return_value=[]):
+                    window.update_data(dict(sample, time=102.0,
+                                            sensors=[dict(chip='nct6798', label='CPU Fan',
+                                                          value=1200, unit='RPM', path='/mock/fan1_input')]))
+                self.assertIn('1200 RPM', window.fan_readings.text())
+                self.assertFalse(window.fan_readings.text().startswith('Son okuma · '))
+
+                window.on_error('örnek hata')
+                self.assertIn('1200 RPM', window.fan_readings.text())
+                self.assertTrue(window.fan_readings.text().startswith('Son okuma · '))
+
+                with patch('anvil.app.channels', return_value=[]):
+                    window.update_data(dict(sample, time=104.0,
+                                            sensors=[dict(chip='nct6798', label='CPU Fan',
+                                                          value=1250, unit='RPM', path='/mock/fan1_input')]))
+                self.assertIn('1250 RPM', window.fan_readings.text())
+                self.assertFalse(window.fan_readings.text().startswith('Son okuma · '))
+            finally:
+                window.quit_app()
+
     def test_async_feedback_keeps_original_channel_after_selection_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)

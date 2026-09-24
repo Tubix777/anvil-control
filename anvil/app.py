@@ -1058,12 +1058,19 @@ class Window(QMainWindow):
         self.alert_banner.setText('SICAKLIK UYARISI  ·  ' + ', '.join(active) + ' — Cihazlar → Durum bölümünü inceleyin.')
         self.alert_banner.setVisible(bool(active))
 
+    def mark_fan_readings_stale(self):
+        """Make the general RPM list visibly stale until a successful sample replaces it."""
+        reading = self.fan_readings.text()
+        if reading and not reading.startswith('Son okuma · '):
+            self.fan_readings.setText('Son okuma · ' + reading)
+
     def toggle_pause(self):
         self.paused = not self.paused
         self.pause_button.setText('Devam et' if self.paused else 'Duraklat')
         if self.paused:
             self.status.setText('DURAKLATILDI  ·  Son ölçümler gösteriliyor; sıcaklık uyarıları durdu.')
             self.fan_status.setText('Fan ölçümleri duraklatıldı; varsa gösterilen değerler son okumadır.')
+            self.mark_fan_readings_stale()
             self.fan_rpm_history.clear()
             self.fan_readback_state = 'İzleme duraklatıldı · Kanal RPM geçmişi güncel değil.'
             self.update_current_fan_curve()
@@ -1073,6 +1080,7 @@ class Window(QMainWindow):
             self.monitor.previous = None
             self.status.setText('YENİ ÖLÇÜM BEKLENİYOR  ·  Son değerler güncel olmayabilir.')
             self.fan_status.setText('Fan ölçümleri yenileniyor; varsa gösterilen değerler son okumadır.')
+            self.mark_fan_readings_stale()
             self.fan_readback_state = 'Yeni ölçüm bekleniyor · Kanal RPM geçmişi güncel değil.'
             self.update_current_fan_curve()
             self.log_event('İzleme devam ediyor.')
@@ -1289,6 +1297,7 @@ class Window(QMainWindow):
             return
         self.status.setText('Ölçüm alınamadı: ' + error + ' • Ekrandaki değerler eski olabilir.')
         self.fan_status.setText('Fan ölçümleri yenilenemedi; varsa gösterilen değerler son okumadır.')
+        self.mark_fan_readings_stale()
         self.fan_rpm_history.clear()
         self.fan_readback_state = 'Ölçüm yenilenemedi · Kanal RPM geçmişi güncel değil.'
         self.update_current_fan_curve()

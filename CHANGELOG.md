@@ -1,5 +1,10 @@
 # Değişiklikler
 
+## 0.13.6 — 2026-09-24
+
+- İzleme durakladığında, yeni ölçüm beklenirken veya ölçüm hata verdiğinde genel fan RPM listesi de açıkça **son okuma** olarak işaretleniyor. Yalnızca başarılı yeni ölçüm bu işareti kaldırıyor; eski devir canlı veri gibi görünmüyor.
+- Fan yazımı, güç profili ve yetki modeli değişmedi.
+
 ## 0.13.5 — 2026-09-24
 
 - Doğrulanmamış ASUS anakartlarında fan paneli artık mevcut donanım eğrisinin incelenebileceğini ima etmiyor. Varsa fan devir sensörlerinin izlenebildiğini, hazır eğrilerin yalnız önizleme olduğunu ve fan yazımının kapalı kaldığını açıkça belirtiyor.
