@@ -783,6 +783,7 @@ class Window(QMainWindow):
         for title, action in [('Eğri düzenle', self.edit_curve), ('Tam hız', lambda: self.fan_action('full')),
                               ('Önceki ayarlar', lambda: self.fan_action('restore'))]:
             b = button(title, action)
+            b.setEnabled(False)
             control_row.addWidget(b)
             self.fan_controls.append(b)
         fv.addLayout(control_row)
@@ -1067,6 +1068,8 @@ class Window(QMainWindow):
     def toggle_pause(self):
         self.paused = not self.paused
         self.pause_button.setText('Devam et' if self.paused else 'Duraklat')
+        for control in self.fan_controls:
+            control.setEnabled(False)
         if self.paused:
             self.status.setText('DURAKLATILDI  ·  Son ölçümler gösteriliyor; sıcaklık uyarıları durdu.')
             self.fan_status.setText('Fan ölçümleri duraklatıldı; varsa gösterilen değerler son okumadır.')
@@ -1224,6 +1227,9 @@ class Window(QMainWindow):
     def fan_action(self, action, points=None, preset_name=None, expected_channel=None):
         helper = '/usr/libexec/anvil-fan-helper'
         channel = self.fan_channel.currentData()
+        if self.paused or self.fan_readback_state:
+            self.fan_feedback.setText('Fan ayarı için yeni başarılı ölçüm bekleniyor; işlem iptal edildi.')
+            return
         if expected_channel is not None and channel != expected_channel:
             self.fan_feedback.setText('Fan kanalı değişti; işlem iptal edildi. Eğriyi seçili kanal için yeniden açın.')
             return
@@ -1297,6 +1303,8 @@ class Window(QMainWindow):
             return
         self.status.setText('Ölçüm alınamadı: ' + error + ' • Ekrandaki değerler eski olabilir.')
         self.fan_status.setText('Fan ölçümleri yenilenemedi; varsa gösterilen değerler son okumadır.')
+        for control in self.fan_controls:
+            control.setEnabled(False)
         self.mark_fan_readings_stale()
         self.fan_rpm_history.clear()
         self.fan_readback_state = 'Ölçüm yenilenemedi · Kanal RPM geçmişi güncel değil.'

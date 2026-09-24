@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.13.8 — 2026-09-24
+
+- İlk başarılı ölçümden önce, izleme duraklatıldığında ve ölçüm hatasında fan ayarı yazan düğmeler kapalı kalıyor; yeni başarılı okuma sonrasında yeniden açılıyor.
+- Önceden açılmış eğri düzenleyicisinden duraklatma veya hata sonrası gelen yazma isteği de iptal ediliyor. Son okunan kanal ve eğri salt okunur olarak incelenebiliyor.
+- Fan donanımına yazma, güç profili ve ayrıcalıklı yardımcının yetkileri değişmedi.
+
 ## 0.13.7 — 2026-09-24
 
 - Ana sayfa fan paneli artık 0 RPM okuyan sensörlerden yola çıkıp tüm fiziksel fanların durduğunu iddia etmiyor. Pozitif devir okuması sayısını ve pozitif okuma yoksa bunu gösteriyor.

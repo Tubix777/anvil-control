@@ -35,7 +35,7 @@ Doğrulanmamış ASUS kartlarında hazır eğri **önizlemesi**, kartın mevcut 
 [Sürümlerden](https://github.com/Tubix777/anvil-control/releases) RPM’yi indirin:
 
 ```bash
-sudo dnf install ./anvil-control-0.13.7-1.fc44.noarch.rpm
+sudo dnf install ./anvil-control-0.13.8-1.fc44.noarch.rpm
 anvil-control
 ```
 
@@ -67,6 +67,8 @@ Seçili doğrulanmış kanalın son 60 saniyedeki RPM aralığı ve son iki geç
 
 İzleme duraklatılırsa veya ölçüm alınamazsa genel fan devir listesi, seçili kanal RPM’si ve donanım eğrisi **son okuma** olarak işaretlenir; geçmiş canlıymış gibi gösterilmez. Yeniden başarılı ölçüm alındığında işaret kalkar ve RPM değişimi yeni bir geçmişten hesaplanır.
 
+İlk başarılı ölçümden önce ve izleme duraklatıldığında ya da ölçüm hata verdiğinde fan ayarı yazan düğmeler kapalıdır. Açık kalmış bir eğri penceresinden gelen işlem de iptal edilir; yeni başarılı ölçümden sonra yazma seçenekleri yeniden açılır. Kanal ve son okunmuş eğri salt okunur biçimde incelenebilir.
+
 Fan yazma yardımcısı kurulu olmasa veya başka bir donanım işlemi sürse de mevcut kanallar arasında geçiş yapıp eğrileri salt okunur biçimde inceleyebilirsiniz. Böyle durumlarda fan ayarı yazan düğmeler kapalı kalır.
 
 Fan işlem mesajında hedef kanal numarası görünür. Özel eğri düzenleyicisi açıkken kanal seçimi değişirse uygulama yazmayı iptal eder; yeni kanal için düzenleyiciyi yeniden açın.
@@ -92,7 +94,7 @@ python3 -m unittest discover -s tests -v
 QT_QPA_PLATFORM=offscreen PYTHONPATH=. python3 tests/smoke_ui.py
 ```
 
-54 birim testi ve gerçek sensör telemetrisiyle beş bölümlü arayüz testi. Smoke testi yalnızca mevcut sistemde çalışır. Bu bağımsız alpha proje ASUS/Fedora tarafından onaylanmamıştır. Anakart çizimi temsili şemadır, pin bağlantısı değildir. AMD GPU desteği sysfs fikstürleriyle sınandı; gerçek AMD donanımında henüz doğrulanmadı. JSON tanılama raporunu paylaşmadan önce içeriğini inceleyin; raporda kart/BIOS, PCI ve sensör bilgileri bulunur.
+61 birim testi ve gerçek sensör telemetrisiyle beş bölümlü arayüz testi. Smoke testi yalnızca mevcut sistemde çalışır. Bu bağımsız alpha proje ASUS/Fedora tarafından onaylanmamıştır. Anakart çizimi temsili şemadır, pin bağlantısı değildir. AMD GPU desteği sysfs fikstürleriyle sınandı; gerçek AMD donanımında henüz doğrulanmadı. JSON tanılama raporunu paylaşmadan önce içeriğini inceleyin; raporda kart/BIOS, PCI ve sensör bilgileri bulunur.
 
 ## English
 

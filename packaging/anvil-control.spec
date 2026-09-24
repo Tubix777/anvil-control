@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.13.7
+Version:        0.13.8
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.13.8-1
+- Disable fan write controls before the first sample and while readings are stale.
+- Reject pending curve actions after pause or sample failure until fresh readback.
+- Keep channel and curve inspection read-only during interrupted monitoring.
 * Thu Sep 24 2026 Anvil contributors - 0.13.7-1
 - Describe positive fan RPM sensor readings without claiming physical fan state.
 - Clarify zero or otherwise non-positive readbacks in the home fan panel.

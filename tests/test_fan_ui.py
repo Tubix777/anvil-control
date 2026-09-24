@@ -261,6 +261,56 @@ class FanUiTests(unittest.TestCase):
             finally:
                 window.quit_app()
 
+    def test_stale_fan_sample_disables_writes_until_fresh_readback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                self.assertTrue(all(not control.isEnabled() for control in window.fan_controls))
+                sample = dict(time=100.0, cpu_usage=None, cpu_temp=None, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[], gpu={}, profile=None, profiles=[])
+                items = [channel(1, 1200), channel(2, 900)]
+                with (patch('anvil.app.channels', return_value=items),
+                      patch('anvil.app.Path.exists', return_value=True)):
+                    window.update_data(sample)
+                    self.assertTrue(all(control.isEnabled() for control in window.fan_controls))
+                    self.assertTrue(window.fan_channel.isEnabled())
+                    self.assertIn('Donanımdan okunan etkin otomatik eğri', window.fan_curve_info.text())
+
+                    with patch.object(window, 'refresh'), patch.object(window, 'run_hardware') as run:
+                        window.toggle_pause()
+                        self.assertTrue(window.fan_channel.isEnabled())
+                        window.fan_channel.setCurrentIndex(1)
+                        self.assertIn('Kanal 2', window.fan_curve_info.text())
+                        self.assertTrue(all(not control.isEnabled() for control in window.fan_controls))
+                        window.fan_action('full')
+                        run.assert_not_called()
+                        self.assertIn('yeni başarılı ölçüm bekleniyor', window.fan_feedback.text())
+
+                        window.toggle_pause()
+                        self.assertTrue(window.fan_channel.isEnabled())
+                        self.assertTrue(all(not control.isEnabled() for control in window.fan_controls))
+                        window.fan_action('full')
+                        run.assert_not_called()
+
+                    window.update_data(dict(sample, time=102.0))
+                    self.assertTrue(all(control.isEnabled() for control in window.fan_controls))
+                    self.assertEqual(window.fan_channel.currentData(), 2)
+                    window.on_error('örnek hata')
+                    self.assertTrue(window.fan_channel.isEnabled())
+                    self.assertIn('güncel olmayabilir', window.fan_curve_info.text())
+                    self.assertTrue(all(not control.isEnabled() for control in window.fan_controls))
+                    with patch.object(window, 'run_hardware') as run:
+                        window.fan_action('full')
+                        run.assert_not_called()
+                    self.assertIn('yeni başarılı ölçüm bekleniyor', window.fan_feedback.text())
+                    window.update_data(dict(sample, time=104.0))
+                    self.assertTrue(all(control.isEnabled() for control in window.fan_controls))
+            finally:
+                window.quit_app()
+
     def test_general_fan_readings_mark_stale_samples_until_new_measurement(self):
         with tempfile.TemporaryDirectory() as directory:
             settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
