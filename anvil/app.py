@@ -751,6 +751,7 @@ class Window(QMainWindow):
         self.fan_channel = QComboBox()
         self.fan_channel.addItem('Kanal aranıyor…', None)
         self.fan_channel.setEnabled(False)
+        self.fan_channel.setAccessibleName('Fan kanalı ve canlı devir')
         self.fan_channel.setToolTip('Kanal numarası fiziksel CPU/kasa etiketi değildir; RPM denetleyici sensöründen okunur.')
         self.current_fan_channels = []
         self.fan_channel.currentIndexChanged.connect(self.update_current_fan_curve)
@@ -1296,7 +1297,8 @@ class Window(QMainWindow):
         self.update_current_fan_curve()
         helper_installed = Path('/usr/libexec/anvil-fan-helper').exists()
         enabled = bool(controllable) and helper_installed and not self.hardware_busy()
-        self.fan_channel.setEnabled(enabled)
+        # Inspecting read-only hardware curves must not depend on write privileges.
+        self.fan_channel.setEnabled(bool(controllable))
         for b in self.fan_controls:
             b.setEnabled(enabled)
         if not controllable and not self.monitor.identity['asus']:

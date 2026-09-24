@@ -64,14 +64,22 @@ class FanUiTests(unittest.TestCase):
                               uptime='', sensors=[], gpu={}, profile=None, profiles=[])
                 items = [channel(1, 0, [[20, 20], [35, 35], [50, 50], [65, 70], [70, 100]]),
                          channel(2, 1400, [[20, 30], [35, 40], [50, 55], [65, 80], [70, 100]])]
-                with patch('anvil.app.channels', return_value=items):
+                with patch('anvil.app.channels', return_value=items), patch('anvil.app.Path.exists', return_value=False):
                     window.update_data(sample)
+                self.assertTrue(window.fan_channel.isEnabled())
+                self.assertTrue(all(not control.isEnabled() for control in window.fan_controls))
                 self.assertEqual(window.fan_channel.currentData(), 2)
                 self.assertEqual(window.fan_channel.itemText(0), 'Kanal 1 · 0 RPM')
                 self.assertEqual(window.fan_channel.itemText(1), 'Kanal 2 · 1400 RPM')
                 self.assertIn('20 °C → ≈%30', window.fan_curve_info.text())
                 window.fan_channel.setCurrentIndex(0)
                 self.assertIn('20 °C → ≈%20', window.fan_curve_info.text())
+                with (patch('anvil.app.channels', return_value=items),
+                      patch('anvil.app.Path.exists', return_value=True),
+                      patch.object(window, 'hardware_busy', return_value=True)):
+                    window.update_data(sample)
+                self.assertTrue(window.fan_channel.isEnabled())
+                self.assertTrue(all(not control.isEnabled() for control in window.fan_controls))
                 changed = [channel(1, 502), channel(2, 1391)]
                 with patch('anvil.app.channels', return_value=changed):
                     window.update_data(sample)

@@ -1,5 +1,10 @@
 # Değişiklikler
 
+## 0.12.1 — 2026-09-24
+
+- Fan kanalını seçip donanım eğrisini incelemek artık yazma yardımcısının kurulu olmasına veya başka bir donanım işleminin bitmesine bağlı değil. Yazma düğmeleri bu durumlarda kapalı kalır; fan donanımı değiştirilmez.
+- Bu ayrımı doğrulayan arayüz testleri genişletildi ve fan kanalı seçicisine erişilebilir ad eklendi.
+
 ## 0.12.0 — 2026-09-24
 
 - Doğrulanmış fan kanalları anlık RPM ile etiketleniyor; yalnızca bir fan dönüyorsa ilk seçim ona yöneliyor, kullanıcının kanal seçimi korunuyor. Kanal numarası fiziksel CPU/kasa bağlantısını kanıtlamaz.

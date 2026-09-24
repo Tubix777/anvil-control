@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.12.0
+Version:        0.12.1
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,9 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.12.1-1
+- Allow read-only fan channel and hardware curve inspection without write access.
+- Keep fan write controls disabled when the helper is absent or hardware is busy.
 * Thu Sep 24 2026 Anvil contributors - 0.12.0-1
 - Label verified fan channels with live RPM and preserve manual selection.
 - Show the selected channel's actual hardware curve and temperature source.
