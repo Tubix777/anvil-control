@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.11.0
+Version:        0.12.0
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.12.0-1
+- Label verified fan channels with live RPM and preserve manual selection.
+- Show the selected channel's actual hardware curve and temperature source.
+- Read optional fan ramp times without changing privileged fan writes.
 * Wed Sep 23 2026 Anvil contributors - 0.11.0-1
 - Redraw the theme-aware motherboard as a layered top-down component illustration.
 - Add decorative trace motion, CPU glow and chart sample halo with motion opt-out.

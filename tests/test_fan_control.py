@@ -81,6 +81,29 @@ class FanTests(unittest.TestCase):
             (hw/key).write_text(str(value))
         return hw
 
+    def test_channel_reports_source_and_optional_ramp_times(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hw = self.fixture(root)
+            (hw/'name').write_text('nct6798')
+            (hw/'fan1_input').write_text('1420')
+            (hw/'pwm1_step_up_time').write_text('500')
+            (hw/'pwm1_step_down_time').write_text('1500')
+
+            item, = channels(root, 'PRIME H610M-K D4', 'ASUS')
+            self.assertEqual(item['channel'], 1)
+            self.assertEqual(item['source_label'], 'PECI Agent 0 Calibration')
+            self.assertEqual(item['source_temp'], 40.0)
+            self.assertEqual(item['step_up_ms'], 500.0)
+            self.assertEqual(item['step_down_ms'], 1500.0)
+
+            (hw/'pwm1_step_up_time').unlink()
+            (hw/'pwm1_step_down_time').unlink()
+            item, = channels(root, 'PRIME H610M-K D4', 'ASUS')
+            self.assertIsNone(item['step_up_ms'])
+            self.assertIsNone(item['step_down_ms'])
+            self.assertEqual(item['source_temp'], 40.0)
+
     def test_curve_full_and_restore(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

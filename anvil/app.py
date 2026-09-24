@@ -418,6 +418,49 @@ def fmt(v, unit='', digits=0):
     return '—' if v is None else f'{v:.{digits}f}{unit}'
 
 
+def fan_channel_label(item):
+    """Use only the controller's channel number, never an unverified socket name."""
+    rpm = item.get('rpm')
+    reading = f'{rpm:.0f} RPM' if isinstance(rpm, (int, float)) and math.isfinite(rpm) and rpm >= 0 else 'RPM okunamadı'
+    return f"Kanal {item['channel']} · {reading}"
+
+
+def preferred_fan_channel(items, selected=None):
+    """Keep a selection; otherwise prefer a fan only when exactly one spins."""
+    if selected in [item['channel'] for item in items]:
+        return selected
+    spinning = [item for item in items if isinstance(item.get('rpm'), (int, float))
+                and math.isfinite(item['rpm']) and item['rpm'] > 0]
+    if len(spinning) == 1:
+        return spinning[0]['channel']
+    return items[0]['channel'] if items else None
+
+
+def hardware_fan_curve_text(item):
+    """Describe read-back PWM points separately from the preset preview."""
+    if item is None:
+        return 'Seçili kanalın donanım eğrisi okunamıyor. Hazır eğriler yalnızca önizlemedir.'
+    prefix = f"Kanal {item['channel']} · Donanımdan okunan "
+    mode = item.get('mode')
+    state = 'etkin otomatik eğri' if mode == '5' else 'kayıtlı eğri (şu an tam hız etkin)' if mode == '0' else 'eğri'
+    details = []
+    source_temp = item.get('source_temp')
+    if isinstance(source_temp, (int, float)) and math.isfinite(source_temp):
+        details.append(f"Sıcaklık kaynağı: {item.get('source_label') or 'PECI'} {source_temp:g} °C")
+    up, down = item.get('step_up_ms'), item.get('step_down_ms')
+    if all(isinstance(value, (int, float)) and math.isfinite(value) and value >= 0 for value in (up, down)):
+        details.append(f'Fan tepki süresi: hızlanma {up:g} ms / yavaşlama {down:g} ms'
+                       + (' (gecikme yok)' if up == down == 0 else ''))
+    points = item.get('points')
+    if (not isinstance(points, (list, tuple)) or len(points) != 5
+            or any(not isinstance(point, (list, tuple)) or len(point) != 2
+                   or any(not isinstance(value, (int, float)) or not math.isfinite(value)
+                          for value in point) for point in points)):
+        return prefix + state + ': beş noktanın tamamı okunamadı.' + ('\n' + ' · '.join(details) if details else '')
+    values = '  ·  '.join(f'{temp:g} °C → ≈%{speed:.0f}' for temp, speed in points)
+    return prefix + state + ' (PWM yüzdesi yaklaşık):\n' + values + ('\n' + ' · '.join(details) if details else '')
+
+
 def percent(part, total):
     return 100 * part / total if part is not None and total and total > 0 else None
 
@@ -708,6 +751,9 @@ class Window(QMainWindow):
         self.fan_channel = QComboBox()
         self.fan_channel.addItem('Kanal aranıyor…', None)
         self.fan_channel.setEnabled(False)
+        self.fan_channel.setToolTip('Kanal numarası fiziksel CPU/kasa etiketi değildir; RPM denetleyici sensöründen okunur.')
+        self.current_fan_channels = []
+        self.fan_channel.currentIndexChanged.connect(self.update_current_fan_curve)
         control_row.addWidget(self.fan_channel)
         self.fan_controls = []
         for title, action in [('Eğri düzenle', self.edit_curve), ('Tam hız', lambda: self.fan_action('full')),
@@ -716,6 +762,9 @@ class Window(QMainWindow):
             control_row.addWidget(b)
             self.fan_controls.append(b)
         fv.addLayout(control_row)
+        self.fan_curve_info = label('Seçili kanalın donanım eğrisi okunuyor…', 'muted')
+        self.fan_curve_info.setAccessibleName('Seçili fan kanalının donanım eğrisi')
+        fv.addWidget(self.fan_curve_info)
         preset_row = QHBoxLayout()
         preset_row.addWidget(label('Hazır hız eğrisi', 'section'))
         self.preset_combo = QComboBox()
@@ -1102,6 +1151,11 @@ class Window(QMainWindow):
             self.preset_info.setText(' · '.join(f'{temp} °C → %{speed}' for temp, speed in points)
                                      + '  |  Sabit RPM değil; sıcaklığa göre donanım eğrisi.')
 
+    def update_current_fan_curve(self, *args):
+        channel = self.fan_channel.currentData()
+        item = next((item for item in self.current_fan_channels if item['channel'] == channel), None)
+        self.fan_curve_info.setText(hardware_fan_curve_text(item))
+
     def apply_fan_preset(self):
         key = self.preset_combo.currentData()
         points = preset_points(key)
@@ -1224,16 +1278,22 @@ class Window(QMainWindow):
         controllable = channels()
         available_channels = [item['channel'] for item in controllable]
         shown_channels = [self.fan_channel.itemData(i) for i in range(self.fan_channel.count())]
+        selected = self.fan_channel.currentData()
+        self.current_fan_channels = controllable
         if available_channels != shown_channels:
-            selected = self.fan_channel.currentData()
-            self.fan_channel.clear()
-            if available_channels:
-                for channel in available_channels:
-                    self.fan_channel.addItem(f'Kanal {channel}', channel)
-                if selected in available_channels:
-                    self.fan_channel.setCurrentIndex(available_channels.index(selected))
-            else:
-                self.fan_channel.addItem('Uygun kanal yok', None)
+            with QSignalBlocker(self.fan_channel):
+                self.fan_channel.clear()
+                if available_channels:
+                    for item in controllable:
+                        self.fan_channel.addItem(fan_channel_label(item), item['channel'])
+                    preferred = preferred_fan_channel(controllable, selected)
+                    self.fan_channel.setCurrentIndex(available_channels.index(preferred))
+                else:
+                    self.fan_channel.addItem('Uygun kanal yok', None)
+        else:
+            for index, item in enumerate(controllable):
+                self.fan_channel.setItemText(index, fan_channel_label(item))
+        self.update_current_fan_curve()
         helper_installed = Path('/usr/libexec/anvil-fan-helper').exists()
         enabled = bool(controllable) and helper_installed and not self.hardware_busy()
         self.fan_channel.setEnabled(enabled)

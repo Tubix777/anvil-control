@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.12.0 — 2026-09-24
+
+- Doğrulanmış fan kanalları anlık RPM ile etiketleniyor; yalnızca bir fan dönüyorsa ilk seçim ona yöneliyor, kullanıcının kanal seçimi korunuyor. Kanal numarası fiziksel CPU/kasa bağlantısını kanıtlamaz.
+- Seçili kanalın donanımdan geri okunan etkin beş noktalı eğrisi, PECI sıcaklık kaynağı ve sürücü sunuyorsa hızlanma/yavaşlama süreleri hazır eğri önizlemesinden ayrı gösteriliyor. Tam hız modunda kayıtlı eğri etkinmiş gibi sunulmuyor.
+- Fan yazma davranışı, güç profili ve sistem fan ayarları değiştirilmedi; ani devir artışının nedenini incelemek için salt okunur bilgiler ve regresyon testleri eklendi.
+
 ## 0.11.0 — 2026-09-23
 
 - Anakartın temsili çizimi; CPU soketi, VRM, çift RAM yuvası, M.2, PCIe, SATA, yonga seti ve bağlantı ayrıntılarıyla yeniden tasarlandı. Yedi temanın renklerine uyarlanır; gerçek pin/bağlantı planı değildir.

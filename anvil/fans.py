@@ -74,6 +74,10 @@ def channels(root=Path('/sys/class/hwmon'), board=None, vendor=None):
                     and read(hw/f'{stem}_enable') in ('0', '5')):
                 found.append({'channel':n, 'rpm':number(hw/f'fan{n}_input'),
                               'mode':read(hw/f'pwm{n}_enable'), 'duty':number(hw/f'pwm{n}', 2.55),
+                              'source_label':read(hw/f'temp{source}_label'),
+                              'source_temp':number(hw/f'temp{source}_input', 1000),
+                              'step_up_ms':number(hw/f'{stem}_step_up_time'),
+                              'step_down_ms':number(hw/f'{stem}_step_down_time'),
                               'points':[[number(hw/f'pwm{n}_auto_point{i}_temp', 1000),
                                          number(hw/f'pwm{n}_auto_point{i}_pwm', 2.55)] for i in range(1, 6)]})
     return found
