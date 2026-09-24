@@ -50,6 +50,9 @@ def check():
         w.toggle_pause()
         w.update_data(w.latest)
         assert len(w.history) == before
+        assert 'güncel değil' in w.fan_trend_info.text()
+        if w.fan_channel.currentData() is not None:
+            assert 'son okuma' in w.fan_channel.currentText()
         assert not w.rotor.timer.isActive()
         w.toggle_pause()
         assert len(w.nav) == 5, 'Navigation should stay focused on five sections'

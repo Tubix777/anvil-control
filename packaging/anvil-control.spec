@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.13.0
+Version:        0.13.1
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.13.1-1
+- Mark fan RPM and curve readbacks stale during pause, retry and sample errors.
+- Reset transient RPM comparisons after interrupted sampling.
+- Keep channel selection read-only and helper privileges unchanged.
 * Thu Sep 24 2026 Anvil contributors - 0.13.0-1
 - Show a bounded, in-memory RPM trend for each verified fan channel.
 - Keep channel histories separate and discard unavailable or invalid samples.

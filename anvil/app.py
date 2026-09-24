@@ -603,6 +603,7 @@ class Window(QMainWindow):
         self.latest = None
         self.history = deque(maxlen=3600)
         self.fan_rpm_history = FanRpmHistory()
+        self.fan_readback_state = None
         self.profile_job = None
         self.profile_pending = False
         self.hardware_job = None
@@ -753,7 +754,7 @@ class Window(QMainWindow):
         self.fan_channel = QComboBox()
         self.fan_channel.addItem('Kanal aranıyor…', None)
         self.fan_channel.setEnabled(False)
-        self.fan_channel.setAccessibleName('Fan kanalı ve canlı devir')
+        self.fan_channel.setAccessibleName('Fan kanalı ve son okunan devir')
         self.fan_channel.setToolTip('Kanal numarası fiziksel CPU/kasa etiketi değildir; RPM denetleyici sensöründen okunur.')
         self.current_fan_channels = []
         self.fan_channel.currentIndexChanged.connect(self.update_current_fan_curve)
@@ -1042,10 +1043,18 @@ class Window(QMainWindow):
         self.pause_button.setText('Devam et' if self.paused else 'Duraklat')
         if self.paused:
             self.status.setText('DURAKLATILDI  ·  Son ölçümler gösteriliyor; sıcaklık uyarıları durdu.')
+            self.fan_status.setText('Fan ölçümleri duraklatıldı; varsa gösterilen değerler son okumadır.')
+            self.fan_rpm_history.clear()
+            self.fan_readback_state = 'İzleme duraklatıldı · Kanal RPM geçmişi güncel değil.'
+            self.update_current_fan_curve()
             self.rotor.set_speed(None)
             self.log_event('İzleme duraklatıldı.')
         else:
             self.monitor.previous = None
+            self.status.setText('YENİ ÖLÇÜM BEKLENİYOR  ·  Son değerler güncel olmayabilir.')
+            self.fan_status.setText('Fan ölçümleri yenileniyor; varsa gösterilen değerler son okumadır.')
+            self.fan_readback_state = 'Yeni ölçüm bekleniyor · Kanal RPM geçmişi güncel değil.'
+            self.update_current_fan_curve()
             self.log_event('İzleme devam ediyor.')
             self.refresh()
 
@@ -1164,8 +1173,17 @@ class Window(QMainWindow):
     def update_current_fan_curve(self, *args):
         channel = self.fan_channel.currentData()
         item = next((item for item in self.current_fan_channels if item['channel'] == channel), None)
-        self.fan_curve_info.setText(hardware_fan_curve_text(item))
-        self.fan_trend_info.setText(self.fan_rpm_history.summary(channel))
+        for index, current in enumerate(self.current_fan_channels):
+            reading = fan_channel_label(current)
+            if self.fan_readback_state:
+                reading += ' · son okuma'
+            if self.fan_channel.itemText(index) != reading:
+                self.fan_channel.setItemText(index, reading)
+        curve = hardware_fan_curve_text(item)
+        if item is not None and self.fan_readback_state:
+            curve = 'Son başarılı donanım okuması; güncel olmayabilir.\n' + curve
+        self.fan_curve_info.setText(curve)
+        self.fan_trend_info.setText(self.fan_readback_state or self.fan_rpm_history.summary(channel))
 
     def apply_fan_preset(self):
         key = self.preset_combo.currentData()
@@ -1247,7 +1265,13 @@ class Window(QMainWindow):
         self.run_hardware(shutil.which('openrgb') or 'openrgb', ['--device', str(item['id']), '--mode', mode, '--color', self.rgb_color[1:]], done, 30000)
 
     def on_error(self, error):
+        if self.paused:
+            return
         self.status.setText('Ölçüm alınamadı: ' + error + ' • Ekrandaki değerler eski olabilir.')
+        self.fan_status.setText('Fan ölçümleri yenilenemedi; varsa gösterilen değerler son okumadır.')
+        self.fan_rpm_history.clear()
+        self.fan_readback_state = 'Ölçüm yenilenemedi · Kanal RPM geçmişi güncel değil.'
+        self.update_current_fan_curve()
 
     def update_data(self, d):
         if self.paused:
@@ -1296,6 +1320,7 @@ class Window(QMainWindow):
         selected = self.fan_channel.currentData()
         self.current_fan_channels = controllable
         self.fan_rpm_history.record(d['time'], controllable)
+        self.fan_readback_state = None
         if available_channels != shown_channels:
             with QSignalBlocker(self.fan_channel):
                 self.fan_channel.clear()

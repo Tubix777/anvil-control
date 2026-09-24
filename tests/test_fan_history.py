@@ -72,6 +72,16 @@ class FanRpmHistoryTests(unittest.TestCase):
         history.record(19, [fan(1, 700)])
         self.assertIn('1 ölçüm · 700 RPM', history.summary(1))
 
+    def test_sampling_interruption_discards_previous_comparison(self):
+        history = FanRpmHistory()
+        history.record(10, [fan(1, 500)])
+        history.record(12, [fan(1, 900)])
+        history.clear()
+        self.assertIn('henüz yok', history.summary(1))
+        history.record(14, [fan(1, 950)])
+        self.assertIn('1 ölçüm · 950 RPM', history.summary(1))
+        self.assertNotIn('Son değişim', history.summary(1))
+
     def test_invalid_timestamp_is_ignored(self):
         history = FanRpmHistory()
         history.record(10, [fan(1, 500)])

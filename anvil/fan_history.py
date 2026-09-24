@@ -41,6 +41,11 @@ class FanRpmHistory:
         self._samples = {}
         self._last_timestamp = None
 
+    def clear(self) -> None:
+        """Discard a trend after sampling is interrupted."""
+        self._samples.clear()
+        self._last_timestamp = None
+
     def record(self, timestamp: float, channels: list[dict]) -> None:
         """Store readbacks once per timestamp; unavailable channels lose history."""
         now = _nonnegative_number(timestamp)

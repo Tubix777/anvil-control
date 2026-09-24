@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.13.1 — 2026-09-24
+
+- İzleme duraklatıldığında veya ölçüm başarısız olduğunda fan kanalındaki RPM ve donanım eğrisi son okuma olarak işaretleniyor; eski geçmiş artık canlı “son 60 sn” gibi sunulmuyor.
+- İzleme yeniden başladığında veya hata sonrası ilk başarılı ölçümde RPM karşılaştırması sıfırdan başlıyor. Kanal değişimi sırasında uyarı korunuyor; yeni ölçümle normal gösterim geri geliyor.
+- Fan donanımına yazma, güç profili ve yetki modeli değişmedi.
+
 ## 0.13.0 — 2026-09-24
 
 - Ana sayfada seçili doğrulanmış fan kanalının son 60 saniyedeki geçerli RPM ölçüm sayısı, aralığı ve iki son ölçüm arasındaki değişim gösteriliyor. Kanal geçmişleri karışmıyor; görünmeyen kanalın geçmişi temizleniyor.

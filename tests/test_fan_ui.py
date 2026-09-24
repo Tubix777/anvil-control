@@ -123,6 +123,50 @@ class FanUiTests(unittest.TestCase):
             finally:
                 window.quit_app()
 
+    def test_paused_and_failed_samples_never_look_live_in_fan_panel(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                sample = dict(time=100.0, cpu_usage=None, cpu_temp=None, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[], gpu={}, profile=None, profiles=[])
+                for timestamp, first, second in ((100.0, 500, 1400), (102.0, 900, 1300)):
+                    with patch('anvil.app.channels', return_value=[channel(1, first), channel(2, second)]):
+                        window.update_data(dict(sample, time=timestamp))
+                self.assertIn('Son 60 sn', window.fan_trend_info.text())
+                with patch.object(window, 'refresh'):
+                    window.toggle_pause()
+                    self.assertIn('güncel değil', window.fan_trend_info.text())
+                    self.assertIn('son okumadır', window.fan_status.text())
+                    self.assertNotIn('Son 60 sn', window.fan_trend_info.text())
+                    self.assertIn('son okuma', window.fan_channel.itemText(0))
+                    self.assertIn('güncel olmayabilir', window.fan_curve_info.text())
+                    window.fan_channel.setCurrentIndex(1)
+                    self.assertIn('duraklatıldı', window.fan_trend_info.text())
+                    window.on_error('örnek hata')
+                    self.assertIn('DURAKLATILDI', window.status.text())
+                    window.toggle_pause()
+                    self.assertIn('YENİ ÖLÇÜM BEKLENİYOR', window.status.text())
+                    self.assertIn('Yeni ölçüm bekleniyor', window.fan_trend_info.text())
+                with patch('anvil.app.channels', return_value=[channel(1, 950), channel(2, 1350)]):
+                    window.update_data(dict(sample, time=104.0))
+                self.assertIn('1 ölçüm · 1350 RPM', window.fan_trend_info.text())
+                self.assertNotIn('son okuma', window.fan_channel.itemText(1))
+                self.assertNotIn('güncel olmayabilir', window.fan_curve_info.text())
+                window.on_error('örnek hata')
+                self.assertIn('Ölçüm yenilenemedi', window.fan_trend_info.text())
+                self.assertIn('son okumadır', window.fan_status.text())
+                self.assertIn('son okuma', window.fan_channel.itemText(1))
+                window.fan_channel.setCurrentIndex(0)
+                self.assertIn('Ölçüm yenilenemedi', window.fan_trend_info.text())
+                with patch('anvil.app.channels', return_value=[channel(1, 1000), channel(2, 1200)]):
+                    window.update_data(dict(sample, time=106.0))
+                self.assertIn('1 ölçüm · 1000 RPM', window.fan_trend_info.text())
+            finally:
+                window.quit_app()
+
     def test_async_feedback_keeps_original_channel_after_selection_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
