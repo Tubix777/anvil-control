@@ -1,6 +1,7 @@
 """Read-only hardware discovery and an explicitly invoked power-profile adapter."""
 import ctypes as C
 import json
+from math import isfinite
 import platform
 import shutil
 import subprocess
@@ -25,8 +26,9 @@ def run(args):
 
 def number(path, divisor=1):
     try:
-        return float(read(path)) / divisor
-    except (ValueError, ZeroDivisionError):
+        value = float(read(path)) / divisor
+        return value if isfinite(value) else None
+    except (ValueError, ZeroDivisionError, OverflowError):
         return None
 
 

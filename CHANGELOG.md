@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.13.2 — 2026-09-24
+
+- NCT6798 Smart Fan IV donanım eğrisindeki beşinci nokta artık normal eğri adımı yerine ayrı **kritik eşik** olarak gösteriliyor. Eşikteki PWM geri okuması aynen belirtiliyor; %100’den düşükse tam hız varsayılmıyor.
+- Sysfs’ten gelen `NaN` ve sonsuz sensör okumaları artık geçerli sıcaklık veya RPM gibi gösterilmiyor.
+- Bu sürüm fan donanımına yazmıyor; güç profili ve yetki modeli değişmedi.
+
 ## 0.13.1 — 2026-09-24
 
 - İzleme duraklatıldığında veya ölçüm başarısız olduğunda fan kanalındaki RPM ve donanım eğrisi son okuma olarak işaretleniyor; eski geçmiş artık canlı “son 60 sn” gibi sunulmuyor.

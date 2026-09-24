@@ -94,12 +94,23 @@ class BackendTests(unittest.TestCase):
     def test_missing_measurement_is_not_zero(self):
         self.assertIsNone(number('/path/that/does/not/exist'))
 
+    def test_nonfinite_sysfs_measurements_are_unavailable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            reading = Path(directory) / 'fan1_input'
+            for value in ('nan', 'inf', '-inf', '1e9999'):
+                with self.subTest(value=value):
+                    reading.write_text(value)
+                    self.assertIsNone(number(reading))
+            reading.write_text('1200')
+            self.assertEqual(number(reading), 1200)
+
     def test_sensor_units_and_bad_reading(self):
         with tempfile.TemporaryDirectory() as d:
             hw = Path(d) / 'hwmon0'
             hw.mkdir()
             for name, value in {'name':'coretemp', 'temp1_label':'Package', 'temp1_input':'42500',
-                                'fan1_input':'1200', 'temp2_input':'error'}.items():
+                                'fan1_input':'1200', 'temp2_input':'error',
+                                'temp3_input':'nan', 'fan2_input':'inf'}.items():
                 (hw/name).write_text(value)
             values = sensors(Path(d))
             self.assertEqual(len(values), 2)

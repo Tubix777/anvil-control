@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.13.1
+Version:        0.13.2
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.13.2-1
+- Label NCT6798 point five as a separate critical threshold and show its raw PWM.
+- Reject non-finite sysfs telemetry rather than displaying invalid values.
+- Leave fan hardware writes and power profiles unchanged.
 * Thu Sep 24 2026 Anvil contributors - 0.13.1-1
 - Mark fan RPM and curve readbacks stale during pause, retry and sample errors.
 - Reset transient RPM comparisons after interrupted sampling.

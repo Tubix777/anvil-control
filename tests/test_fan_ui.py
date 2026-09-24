@@ -43,7 +43,7 @@ class FanUiTests(unittest.TestCase):
         current = hardware_fan_curve_text(channel(2, 1400))
         self.assertIn('Donanımdan okunan etkin otomatik eğri', current)
         self.assertIn('20 °C → ≈%20', current)
-        self.assertIn('70 °C → ≈%100', current)
+        self.assertIn('Kritik eşik: 70 °C · okunan kritik PWM ≈%100', current)
         self.assertIn('PECI Agent 0 31 °C', current)
         self.assertIn('hızlanma 0 ms / yavaşlama 0 ms', current)
         self.assertIn('gecikme yok', current)
@@ -53,6 +53,14 @@ class FanUiTests(unittest.TestCase):
         broken = channel(2, 1400, points=[[20, None]])
         self.assertIn('beş noktanın tamamı okunamadı', hardware_fan_curve_text(broken))
         self.assertIn('yalnızca önizlemedir', hardware_fan_curve_text(None))
+
+    def test_critical_threshold_is_separate_from_normal_curve_slopes(self):
+        unusual = channel(2, 1400, points=[[20, 20], [35, 35], [50, 50], [100, 80], [85, 70]])
+        text = hardware_fan_curve_text(unusual)
+        self.assertIn('100 °C → ≈%80', text)
+        self.assertIn('Kritik eşik: 85 °C · okunan kritik PWM ≈%70', text)
+        self.assertNotIn('85 °C → ≈%70', text)
+        self.assertNotIn('tam hız', text)
 
     def test_selection_and_live_readback_follow_selected_channel(self):
         with tempfile.TemporaryDirectory() as directory:

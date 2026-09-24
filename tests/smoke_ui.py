@@ -95,6 +95,7 @@ def check():
         assert 'GPU FAN' in w.gpu_fan.text()
         if w.fan_channel.currentData() is not None:
             assert 'RPM' in w.fan_trend_info.text(), 'Selected channel should show its read-only RPM history'
+            assert 'Kritik eşik:' in w.fan_curve_info.text(), 'Fifth hardware point is a critical threshold'
         assert w.preset_combo.count() == 3
         assert 'Sabit RPM değil' in w.preset_info.text()
         assert w.theme_combo.count() == len(THEMES) == 7

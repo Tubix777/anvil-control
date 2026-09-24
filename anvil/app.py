@@ -458,8 +458,12 @@ def hardware_fan_curve_text(item):
                    or any(not isinstance(value, (int, float)) or not math.isfinite(value)
                           for value in point) for point in points)):
         return prefix + state + ': beş noktanın tamamı okunamadı.' + ('\n' + ' · '.join(details) if details else '')
-    values = '  ·  '.join(f'{temp:g} °C → ≈%{speed:.0f}' for temp, speed in points)
-    return prefix + state + ' (PWM yüzdesi yaklaşık):\n' + values + ('\n' + ' · '.join(details) if details else '')
+    values = '  ·  '.join(f'{temp:g} °C → ≈%{speed:.0f}' for temp, speed in points[:-1])
+    critical_temp, critical_pwm = points[-1]
+    critical = (f'Kritik eşik: {critical_temp:g} °C · okunan kritik PWM ≈%{critical_pwm:.0f}'
+                ' (normal eğri noktası değil)')
+    return (prefix + state + ' (PWM yüzdesi yaklaşık):\n' + values + '\n' + critical
+            + ('\n' + ' · '.join(details) if details else ''))
 
 
 def percent(part, total):
