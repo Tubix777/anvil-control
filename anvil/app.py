@@ -1336,10 +1336,10 @@ class Window(QMainWindow):
             f"CPU frekansı {fmt(d['cpu_mhz'], ' MHz')}   ·   Açık kalma {hours(d['uptime'])} saat   ·   Disk / {d['disk_used']/2**30:.0f} / {d['disk_total']/2**30:.0f} GB")
         self.render_sensors()
         fans = [s for s in d['sensors'] if s['unit'] == 'RPM']
-        spinning = [s for s in fans if s['value'] > 0]
+        positive_rpm = [s for s in fans if s['value'] > 0]
         self.gpu_fan.setText('GPU FAN  ' + gpu_fan)
-        self.fan_readings.setText('  ·  '.join(f"{s['chip']} / {s['label']}: {s['value']:.0f} RPM" for s in spinning)
-                                  or ('Algılanan fanların hiçbiri dönmüyor.' if fans else ''))
+        self.fan_readings.setText('  ·  '.join(f"{s['chip']} / {s['label']}: {s['value']:.0f} RPM" for s in positive_rpm)
+                                  or ('Fan devir sensörlerinden pozitif RPM okunmadı.' if fans else ''))
         self.fan_readings.setVisible(bool(fans))
         pwm = list(Path('/sys/class/hwmon').glob('hwmon*/pwm[0-9]'))
         self.monitor.identity['pwm'] = [str(p) for p in pwm]
@@ -1382,7 +1382,7 @@ class Window(QMainWindow):
             self.fan_feedback.setText('Fan denetleyicisi bulundu. Kontrol için güncel RPM paketini kurun.')
         elif self.fan_feedback.text() == 'Kontrol desteği denetleniyor…':
             self.fan_feedback.setText('Otomatik eğri / tam hız hazır. Kanal numaraları fiziksel CPU/kasa etiketi değildir.')
-        self.fan_status.setText(f'{len(spinning)} dönen fan / {len(fans)} devir sensörü • {len(pwm)} PWM arayüzü bulundu.' if fans or pwm
+        self.fan_status.setText(f'{len(positive_rpm)} pozitif RPM okuması / {len(fans)} devir sensörü • {len(pwm)} PWM arayüzü bulundu.' if fans or pwm
                                else 'Fan devir / PWM arayüzü görünmüyor. Mevcut kernel sürücülerinden fan kontrolü alınamıyor.')
         overview, capabilities = capability_report(self.monitor.identity, d, available_channels, helper_installed)
         self.compatibility.setText(overview)

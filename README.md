@@ -35,7 +35,7 @@ Doğrulanmamış ASUS kartlarında hazır eğri **önizlemesi**, kartın mevcut 
 [Sürümlerden](https://github.com/Tubix777/anvil-control/releases) RPM’yi indirin:
 
 ```bash
-sudo dnf install ./anvil-control-0.13.6-1.fc44.noarch.rpm
+sudo dnf install ./anvil-control-0.13.7-1.fc44.noarch.rpm
 anvil-control
 ```
 
@@ -52,6 +52,8 @@ Beş bölüm: **Genel bakış**, **Sensörler**, **Güç**, **Cihazlar** (RGB, e
 Ana sayfadaki anakartın katmanlı üstten görünüşü CPU, RAM, PCIe, M.2 ve diğer başlıca bileşenleri temsili olarak gösterir; gerçek pin/bağlantı şeması değildir. Anakart izlerindeki ışık, CPU vurgusu ve grafikteki yeni ölçüm halkası dekoratif animasyonlardır. **Ayarlar → Arayüz animasyonları** seçeneği bunları ve diğer hareketleri kapatır; gizli sayfalarda anakart animasyonu çalışmaz.
 
 Ana sayfadaki fan merkezinde **Sakin**, **Dengeli** ve **Yüksek soğutma** hazır sıcaklık eğrileri seçilebilir; **Eğriyi uygula** seçili, doğrulanmış anakart kanalına yazar. Bunlar sabit RPM hedefleri değildir. 75 ve 85 °C noktalarında tüm hazır eğriler %100 PWM uygular. **Önceki ayarlar** bu açılıştaki ilk değişiklik öncesine döner. GPU fanı için yazma denetimi sunulmaz.
+
+Genel fan listesi yalnız 0’dan yüksek RPM okuyan sensörleri sıralar. Sıfır veya geçersiz devir okuması, bilgisayardaki bütün fiziksel fanların durmuş olduğunu kanıtlamaz; panel bu durumda pozitif RPM okunmadığını belirtir.
 
 Doğrulanmış fan kanallarının seçiminde anlık RPM gösterilir. Yalnız bir kanal dönüyorsa başlangıçta o öne alınır; elle seçtiğiniz kanal korunur. Seçili kanalın donanımdan okunan **mevcut eğrisi** ve varsa PECI kaynak sıcaklığı ile fan tepki süreleri hazır eğri önizlemesinden ayrı görünür. Bu değerler ani fan hızlanmasını incelemeye yardımcı olur; fan tepki süresini bu sürümde değiştirmez.
 

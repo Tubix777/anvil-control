@@ -305,6 +305,31 @@ class FanUiTests(unittest.TestCase):
             finally:
                 window.quit_app()
 
+    def test_zero_rpm_sensor_readings_do_not_claim_every_fan_stopped(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                sample = dict(time=100.0, cpu_usage=None, cpu_temp=None, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[
+                                  dict(chip='generic', label='Fan A', value=0, unit='RPM',
+                                       path='/mock/fan1_input'),
+                                  dict(chip='generic', label='Fan B', value=0, unit='RPM',
+                                       path='/mock/fan2_input')],
+                              gpu={}, profile=None, profiles=[])
+                with patch('anvil.app.channels', return_value=[]):
+                    window.update_data(sample)
+                readings = window.fan_readings.text()
+                self.assertEqual(readings, 'Fan devir sensörlerinden pozitif RPM okunmadı.')
+                self.assertNotIn('tüm fanlar durdu', readings.lower())
+                self.assertNotIn('bütün fanlar durdu', readings.lower())
+                self.assertIn('0 pozitif RPM okuması / 2 devir sensörü', window.fan_status.text())
+                self.assertNotIn('dönen fan', window.fan_status.text().lower())
+            finally:
+                window.quit_app()
+
     def test_async_feedback_keeps_original_channel_after_selection_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)

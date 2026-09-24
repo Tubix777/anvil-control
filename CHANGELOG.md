@@ -1,5 +1,10 @@
 # Değişiklikler
 
+## 0.13.7 — 2026-09-24
+
+- Ana sayfa fan paneli artık 0 RPM okuyan sensörlerden yola çıkıp tüm fiziksel fanların durduğunu iddia etmiyor. Pozitif devir okuması sayısını ve pozitif okuma yoksa bunu gösteriyor.
+- Salt okunur sensör açıklaması dışında fan donanımı, güç profili ve yetki modeli değişmedi.
+
 ## 0.13.6 — 2026-09-24
 
 - İzleme durakladığında, yeni ölçüm beklenirken veya ölçüm hata verdiğinde genel fan RPM listesi de açıkça **son okuma** olarak işaretleniyor. Yalnızca başarılı yeni ölçüm bu işareti kaldırıyor; eski devir canlı veri gibi görünmüyor.
