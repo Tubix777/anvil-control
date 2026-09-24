@@ -1246,15 +1246,18 @@ class Window(QMainWindow):
         if self.hardware_busy():
             return
         args = [helper, str(channel), action]
+        requested_points = None
         if points is not None:
-            args.append(json.dumps(points))
+            payload = json.dumps(points)
+            args.append(payload)
+            requested_points = json.loads(payload)
         self.fan_curve_readback_pending = True
         for control in self.fan_controls:
             control.setEnabled(False)
         self.update_current_fan_curve()
         self.fan_feedback.setText(f'Kanal {channel}: donanıma yazma ve geri okuma bekleniyor…')
         def done(ok, out, err):
-            verified, message = fan_result(ok, out, err, action, channel)
+            verified, message = fan_result(ok, out, err, action, channel, requested_points)
             if verified and preset_name:
                 message = f'{preset_name} eğrisi: {message}'
             message = f'Kanal {channel}: {message}'

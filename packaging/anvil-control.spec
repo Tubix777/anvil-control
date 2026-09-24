@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.13.10
+Version:        0.13.11
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.13.11-1
+- Match every returned curve temperature and PWM value against requested points.
+- Reject false success feedback when curve readback differs from the sent payload.
+- Leave the privileged helper, hardware write behavior and power profiles unchanged.
 * Thu Sep 24 2026 Anvil contributors - 0.13.10-1
 - Hide curve points that may be intermediate readbacks during a fan action.
 - Restore the displayed hardware curve only after a successful post-action sample.

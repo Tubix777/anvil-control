@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.13.11 — 2026-09-24
+
+- Fan eğrisi işleminin başarı mesajı artık dönen her sıcaklık ve PWM noktasını gönderilen eğriyle birebir karşılaştırıyor. Mod doğru olsa bile noktalardan biri farklıysa doğrulanmış başarı iddia edilmiyor.
+- Asenkron sonuçta karşılaştırılan eğri, işlem başında gerçekten gönderilen JSON’un kopyasıdır; sonradan değişebilen arayüz verisi sonucu etkilemez.
+- Ayrıcalıklı yardımcı, donanım yazma davranışı, güç profili ve yetki modeli değişmedi.
+
 ## 0.13.10 — 2026-09-24
 
 - Fan işlemi sürerken veya tamamlanıp yeni okuma beklenirken mevcut eğri noktaları gösterilmiyor; işlem ortasındaki karma eski/yeni noktalar etkin donanım eğrisi gibi sunulmuyor.

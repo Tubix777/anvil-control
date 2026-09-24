@@ -62,6 +62,24 @@ class FanTests(unittest.TestCase):
         self.assertFalse(fan_result(True, '{}', '', 'full', 1)[0])
         self.assertFalse(fan_result(False, '', 'permission denied', 'full', 1)[0])
 
+    def test_curve_success_requires_exact_requested_temperature_and_pwm_readback(self):
+        fields = {'pwm1_enable': 5}
+        for index, (temp, speed) in enumerate(CURVE, 1):
+            fields[f'pwm1_auto_point{index}_temp'] = temp * 1000
+            fields[f'pwm1_auto_point{index}_pwm'] = round(speed * 255 / 100)
+        response = {'ok': True, 'action': 'curve', 'channel': 1, 'verified': fields}
+        output = json.dumps(response)
+        self.assertTrue(fan_result(True, output, '', 'curve', 1, CURVE)[0])
+        self.assertFalse(fan_result(True, output, '', 'curve', 1)[0])
+        for key in ('pwm1_auto_point2_temp', 'pwm1_auto_point3_pwm'):
+            with self.subTest(key=key):
+                changed = dict(fields)
+                changed[key] += 1
+                result = fan_result(True, json.dumps(dict(response, verified=changed)),
+                                    '', 'curve', 1, CURVE)
+                self.assertFalse(result[0])
+                self.assertIn('istenen noktalarla uyuşmuyor', result[1])
+
     def test_validation(self):
         self.assertEqual(helper.validate_curve(CURVE), CURVE)
         for invalid in [[], [[30, 0]]*5, [[30, 50], [20, 60], [60, 75], [75, 100], [85, 100]],

@@ -457,6 +457,36 @@ class FanUiTests(unittest.TestCase):
             finally:
                 window.quit_app()
 
+    def test_curve_feedback_compares_readback_with_points_actually_sent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                window.fan_channel.clear()
+                window.fan_channel.addItem('Kanal 1', 1)
+                requested = [[30, 50], [45, 60], [60, 75], [75, 100], [85, 100]]
+                pending = {}
+                def capture(program, arguments, callback):
+                    pending.update(arguments=arguments, callback=callback)
+                with (patch('anvil.app.channels', return_value=[channel(1, 900)]),
+                      patch('anvil.app.Path.exists', return_value=True),
+                      patch.object(window, 'run_hardware', side_effect=capture),
+                      patch.object(window, 'log_event')):
+                    window.fan_action('curve', requested)
+                    self.assertEqual(json.loads(pending['arguments'][-1])[0], [30, 50])
+                    requested[0][1] = 60
+                    verified = {'pwm1_enable': 5}
+                    for index, (temp, speed) in enumerate(requested, 1):
+                        verified[f'pwm1_auto_point{index}_temp'] = temp * 1000
+                        verified[f'pwm1_auto_point{index}_pwm'] = round(speed * 255 / 100)
+                    pending['callback'](True, json.dumps({'ok': True, 'action': 'curve',
+                                                          'channel': 1, 'verified': verified}), '')
+                self.assertIn('istenen noktalarla uyuşmuyor', window.fan_feedback.text())
+                self.assertNotIn('geri okunarak doğrulandı', window.fan_feedback.text())
+            finally:
+                window.quit_app()
+
     def test_curve_editor_refuses_a_changed_channel(self):
         with tempfile.TemporaryDirectory() as directory:
             settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)

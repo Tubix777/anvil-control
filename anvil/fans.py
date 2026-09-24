@@ -52,7 +52,7 @@ def _secondary_source(hw, stem):
             'temp': raw_temp/1000 if raw_temp is not None and -128000 <= raw_temp < 128000 else None}
 
 
-def fan_result(ok, output, error, action, channel):
+def fan_result(ok, output, error, action, channel, requested_points=None):
     """Report success only for a matching, read-back-verified helper response."""
     if not ok:
         return False, 'Fan işlemi başarısız: ' + (error.strip() or 'Yetkilendirme iptal edildi veya yardımcı başlatılamadı.')
@@ -72,6 +72,17 @@ def fan_result(ok, output, error, action, channel):
             or (action == 'curve' and verified[stem + '_enable'] != 5)
             or (action == 'full' and verified[stem + '_enable'] != 0)):
         return False, 'Fan ayarının geri okuması eksik veya beklenen modda değil.'
+    if action == 'curve':
+        if (not isinstance(requested_points, list) or len(requested_points) != 5
+                or any(not isinstance(point, list) or len(point) != 2
+                       or any(type(value) is not int for value in point)
+                       for point in requested_points)):
+            return False, 'İstenen fan eğrisi doğrulama için bulunamadı.'
+        for index, (temp, speed) in enumerate(requested_points, 1):
+            if (verified[f'{stem}_auto_point{index}_temp'] != temp * 1000
+                    or verified[f'{stem}_auto_point{index}_pwm'] != round(speed * 255 / 100)):
+                return False, ('Fan eğrisi geri okuması istenen noktalarla uyuşmuyor; '
+                               'donanım eğrisini yeniden inceleyin.')
     return True, 'Fan ayarı uygulandı ve donanımdan geri okunarak doğrulandı.'
 
 
