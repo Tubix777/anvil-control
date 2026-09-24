@@ -1,5 +1,10 @@
 # Değişiklikler
 
+## 0.13.4 — 2026-09-24
+
+- Ekran okuyucuya sunulan fan eğrisi ve son devir değişimi metinleri artık seçili kanal ile ölçüm değiştikçe yenileniyor. Sabit erişilebilir adların canlı metni gizlemesi giderildi; açıklayıcı bağlam erişilebilir açıklama olarak korunuyor.
+- Kanal değişimi ve ölçüm hatasındaki erişilebilir metinler test edildi. Fan donanımına yazma, güç profili ve yetki modeli değişmedi.
+
 ## 0.13.3 — 2026-09-24
 
 - NCT6798’in sunduğu isteğe bağlı ikincil sıcaklık kaynağı seçimi, sensör etiketi ve geçerli sıcaklığı seçili kanalın donanım eğrisi yanında salt okunur gösteriliyor. Alan yoksa kapalı varsayılmıyor; devre dışı/atanmamış seçim ve okunamayan veri ayrı belirtiliyor.

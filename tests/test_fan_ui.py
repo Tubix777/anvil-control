@@ -9,6 +9,7 @@ from unittest.mock import patch
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 from PySide6.QtCore import QSettings
+from PySide6.QtGui import QAccessible
 from PySide6.QtWidgets import QApplication, QDialogButtonBox, QLabel
 
 from anvil.app import (Window, configure_style, fan_channel_label,
@@ -116,6 +117,35 @@ class FanUiTests(unittest.TestCase):
                     window.update_data(sample)
                 self.assertIsNone(window.fan_channel.currentData())
                 self.assertIn('yalnızca önizlemedir', window.fan_curve_info.text())
+            finally:
+                window.quit_app()
+
+    def test_screen_reader_names_follow_live_curve_and_rpm_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                curve = QAccessible.queryAccessibleInterface(window.fan_curve_info)
+                trend = QAccessible.queryAccessibleInterface(window.fan_trend_info)
+                self.assertEqual(curve.text(QAccessible.Text.Description),
+                                 'Seçili fan kanalının donanım eğrisi')
+                self.assertEqual(trend.text(QAccessible.Text.Description),
+                                 'Seçili fan kanalının son devir değişimi')
+                sample = dict(time=100.0, cpu_usage=None, cpu_temp=None, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[], gpu={}, profile=None, profiles=[])
+                items = [channel(1, 500), channel(2, 1400)]
+                with patch('anvil.app.channels', return_value=items):
+                    window.update_data(sample)
+                self.assertEqual(curve.text(QAccessible.Text.Name), window.fan_curve_info.text())
+                self.assertEqual(trend.text(QAccessible.Text.Name), window.fan_trend_info.text())
+                window.fan_channel.setCurrentIndex(1)
+                self.assertIn('Kanal 2', curve.text(QAccessible.Text.Name))
+                self.assertIn('1400 RPM', trend.text(QAccessible.Text.Name))
+                window.on_error('örnek hata')
+                self.assertIn('güncel olmayabilir', curve.text(QAccessible.Text.Name))
+                self.assertIn('Ölçüm yenilenemedi', trend.text(QAccessible.Text.Name))
             finally:
                 window.quit_app()
 

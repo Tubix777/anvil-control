@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.13.3
+Version:        0.13.4
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.13.4-1
+- Expose changing fan curve and RPM trend text to screen readers.
+- Keep stable context as accessible descriptions instead of masking values.
+- Leave fan writes, power profiles and helper privileges unchanged.
 * Thu Sep 24 2026 Anvil contributors - 0.13.3-1
 - Show optional secondary fan temperature-source selection and valid reading.
 - Distinguish absent, disabled and unreadable secondary-source attributes.
