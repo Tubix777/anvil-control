@@ -52,7 +52,7 @@ def sensors(root=Path('/sys/class/hwmon')):
         for kind, unit, scale in [('temp', '°C', 1000), ('fan', 'RPM', 1), ('power', 'W', 1000000)]:
             for file in sorted(hw.glob(kind + '*_input')):
                 value = number(file, scale)
-                if value is not None:
+                if value is not None and (kind != 'fan' or value >= 0):
                     stem = file.name.removesuffix('_input')
                     result.append(dict(chip=chip, label=read(hw / (stem + '_label'), stem),
                                        value=value, unit=unit, path=str(file)))

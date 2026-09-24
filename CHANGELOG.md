@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.13.9 — 2026-09-24
+
+- Genel hwmon sensörlerinde negatif fan RPM okumaları artık geçerli devir sayılmıyor; sensör tablosu ve fan sayacı bu geçersiz değeri göstermiyor.
+- 0 RPM geçerli okuma olarak korunuyor. Negatif sıcaklık okumaları fan filtresinden etkilenmiyor.
+- Fan donanımına yazma, güç profili ve ayrıcalıklı yardımcının yetkileri değişmedi.
+
 ## 0.13.8 — 2026-09-24
 
 - İlk başarılı ölçümden önce, izleme duraklatıldığında ve ölçüm hatasında fan ayarı yazan düğmeler kapalı kalıyor; yeni başarılı okuma sonrasında yeniden açılıyor.

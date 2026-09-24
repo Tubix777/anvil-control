@@ -117,6 +117,18 @@ class BackendTests(unittest.TestCase):
             self.assertEqual(values[0]['value'], 42.5)
             self.assertEqual(values[1]['value'], 1200)
 
+    def test_negative_fan_rpm_is_unavailable_but_zero_is_a_valid_readback(self):
+        with tempfile.TemporaryDirectory() as d:
+            hw = Path(d) / 'hwmon0'
+            hw.mkdir()
+            for name, value in {'name': 'example', 'fan1_input': '-1',
+                                'fan2_input': '0', 'fan3_input': '1200',
+                                'temp1_input': '-5000'}.items():
+                (hw/name).write_text(value)
+            values = sensors(Path(d))
+            self.assertEqual([(item['unit'], item['value']) for item in values],
+                             [('°C', -5), ('RPM', 0), ('RPM', 1200)])
+
     @patch('anvil.backend.run', return_value='')
     def test_unavailable_dbus(self, mocked):
         self.assertIsNone(property_value('Profiles'))
