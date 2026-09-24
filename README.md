@@ -28,12 +28,14 @@ Bu nedenle uygulama farklı ASUS sistemlerinde genel izleme için kullanılabili
 
 **Cihazlar → Bu sistemde kullanılabilir özellikler** tablosu, o bilgisayarda bulunan sıcaklık ve fan okumalarını, PWM arayüzlerini, GPU telemetrisini, güç profillerini ve fan yazma durumunu ayrı ayrı gösterir. PWM dosyasının görünmesi tek başına güvenli yazma desteği anlamına gelmez. Hazır eğriler her ASUS kartta incelenebilir, ancak yalnızca doğrulanmış kanalda ve paket yardımcısı kuruluysa uygulanabilir.
 
+Doğrulanmamış ASUS kartlarında hazır eğri **önizlemesi**, kartın mevcut donanım eğrisi değildir. Anvil bu kartların mevcut eğrisini göstermez veya fanlarına yazmaz; sürücü sunuyorsa fan devir sensörleri yine izlenebilir.
+
 ## Kurulum — Fedora 44 KDE
 
 [Sürümlerden](https://github.com/Tubix777/anvil-control/releases) RPM’yi indirin:
 
 ```bash
-sudo dnf install ./anvil-control-0.13.4-1.fc44.noarch.rpm
+sudo dnf install ./anvil-control-0.13.5-1.fc44.noarch.rpm
 anvil-control
 ```
 

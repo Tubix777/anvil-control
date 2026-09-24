@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.13.4
+Version:        0.13.5
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Sep 24 2026 Anvil contributors - 0.13.5-1
+- Clarify that unverified ASUS boards show only preset previews, not current curves.
+- Keep sensor monitoring distinct from unsupported fan writes.
+- Leave fan hardware, power profiles and helper privileges unchanged.
 * Thu Sep 24 2026 Anvil contributors - 0.13.4-1
 - Expose changing fan curve and RPM trend text to screen readers.
 - Keep stable context as accessible descriptions instead of masking values.

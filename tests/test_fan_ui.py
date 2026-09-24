@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QDialogButtonBox, QLabel
 
 from anvil.app import (Window, configure_style, fan_channel_label,
                        hardware_fan_curve_text, preferred_fan_channel)
+from anvil.fans import channels
 
 
 def channel(number, rpm, points=None, mode='5'):
@@ -117,6 +118,44 @@ class FanUiTests(unittest.TestCase):
                     window.update_data(sample)
                 self.assertIsNone(window.fan_channel.currentData())
                 self.assertIn('yalnızca önizlemedir', window.fan_curve_info.text())
+            finally:
+                window.quit_app()
+
+    def test_unsupported_asus_board_does_not_offer_hardware_curve_inspection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hw = root/'hwmon0'
+            hw.mkdir()
+            for name, value in [('name', 'nct6798'), ('pwm1_enable', '5'),
+                                ('pwm1_mode', '1'), ('pwm1_temp_sel', '8'),
+                                ('temp8_label', 'PECI Agent 0'), ('temp8_input', '40000')]:
+                (hw/name).write_text(value)
+            for index in range(1, 6):
+                (hw/f'pwm1_auto_point{index}_temp').write_text(str(index * 10000))
+                (hw/f'pwm1_auto_point{index}_pwm').write_text(str(index * 40))
+            vendor = 'ASUSTeK COMPUTER INC.'
+            board = 'ROG STRIX B650E-F GAMING WIFI'
+            self.assertEqual(len(channels(root, 'PRIME H610M-K D4', vendor)), 1)
+            self.assertEqual(channels(root, board, vendor), [])
+
+            settings = QSettings(str(root/'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                window.monitor.identity.update(board=board, vendor=vendor, asus=True)
+                sample = dict(time=100.0, cpu_usage=None, cpu_temp=None, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[], gpu={}, profile=None, profiles=[])
+                with patch('anvil.app.channels', return_value=channels(root, board, vendor)):
+                    window.update_data(sample)
+                self.assertFalse(window.fan_channel.isEnabled())
+                self.assertIsNone(window.fan_channel.currentData())
+                self.assertTrue(all(not control.isEnabled() for control in window.fan_controls))
+                self.assertIn('donanım eğrisi okunamıyor', window.fan_curve_info.text())
+                self.assertIn('yalnızca önizlemedir', window.fan_curve_info.text())
+                self.assertNotIn('Donanımdan okunan', window.fan_curve_info.text())
+                self.assertIn('mevcut donanım eğrisi gösterilmez', window.fan_feedback.text())
+                self.assertNotIn('Hız eğrilerini inceleyebilirsiniz', window.fan_feedback.text())
             finally:
                 window.quit_app()
 

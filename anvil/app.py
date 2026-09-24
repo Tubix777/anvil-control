@@ -1364,7 +1364,9 @@ class Window(QMainWindow):
         if not controllable and not self.monitor.identity['asus']:
             self.fan_feedback.setText('ASUS dışı sistemde fan izleme mümkündür; anakart fan yazımı kapalı.')
         elif not controllable and not supports_fan_write(self.monitor.identity['board'], self.monitor.identity['vendor']):
-            self.fan_feedback.setText('Bu ASUS modelinde fan yazma profili henüz doğrulanmadı. Hız eğrilerini inceleyebilirsiniz; uygulama kapalı.')
+            self.fan_feedback.setText(
+                'Bu ASUS modelinde fan yazma profili henüz doğrulanmadı; fan yazımı kapalıdır. '
+                'Varsa devir sensörleri izlenir; hazır eğriler yalnız önizlemedir, mevcut donanım eğrisi gösterilmez.')
         elif not controllable:
             self.fan_feedback.setText('Doğrulanmış kartta güvenli fan kanalı bulunamadı. Tek NCT6798, PWM/PECI ve donanım eğrisi geri okumalarını kontrol edin.')
         elif not helper_installed:

@@ -1,5 +1,10 @@
 # Değişiklikler
 
+## 0.13.5 — 2026-09-24
+
+- Doğrulanmamış ASUS anakartlarında fan paneli artık mevcut donanım eğrisinin incelenebileceğini ima etmiyor. Varsa fan devir sensörlerinin izlenebildiğini, hazır eğrilerin yalnız önizleme olduğunu ve fan yazımının kapalı kaldığını açıkça belirtiyor.
+- Desteklenmeyen kart için arayüz testi eklendi. Fan donanımına yazma, güç profili ve yetki modeli değişmedi.
+
 ## 0.13.4 — 2026-09-24
 
 - Ekran okuyucuya sunulan fan eğrisi ve son devir değişimi metinleri artık seçili kanal ile ölçüm değiştikçe yenileniyor. Sabit erişilebilir adların canlı metni gizlemesi giderildi; açıklayıcı bağlam erişilebilir açıklama olarak korunuyor.
