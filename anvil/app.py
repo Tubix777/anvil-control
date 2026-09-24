@@ -19,6 +19,7 @@ from .widgets import Meter, FanRotor
 from .insights import ThermalAlerts, SensorStats
 from . import __version__
 from .fans import channels, supports_fan_write, fan_result, FAN_PRESETS, preset_points
+from .fan_history import FanRpmHistory
 from .compat import capability_report
 from .rgb import parse_devices
 
@@ -601,6 +602,7 @@ class Window(QMainWindow):
         self.monitor = Monitor()
         self.latest = None
         self.history = deque(maxlen=3600)
+        self.fan_rpm_history = FanRpmHistory()
         self.profile_job = None
         self.profile_pending = False
         self.hardware_job = None
@@ -766,6 +768,9 @@ class Window(QMainWindow):
         self.fan_curve_info = label('Seçili kanalın donanım eğrisi okunuyor…', 'muted')
         self.fan_curve_info.setAccessibleName('Seçili fan kanalının donanım eğrisi')
         fv.addWidget(self.fan_curve_info)
+        self.fan_trend_info = label('Fan devir geçmişi için ölçüm bekleniyor…', 'muted')
+        self.fan_trend_info.setAccessibleName('Seçili fan kanalının son devir değişimi')
+        fv.addWidget(self.fan_trend_info)
         preset_row = QHBoxLayout()
         preset_row.addWidget(label('Hazır hız eğrisi', 'section'))
         self.preset_combo = QComboBox()
@@ -1160,6 +1165,7 @@ class Window(QMainWindow):
         channel = self.fan_channel.currentData()
         item = next((item for item in self.current_fan_channels if item['channel'] == channel), None)
         self.fan_curve_info.setText(hardware_fan_curve_text(item))
+        self.fan_trend_info.setText(self.fan_rpm_history.summary(channel))
 
     def apply_fan_preset(self):
         key = self.preset_combo.currentData()
@@ -1289,6 +1295,7 @@ class Window(QMainWindow):
         shown_channels = [self.fan_channel.itemData(i) for i in range(self.fan_channel.count())]
         selected = self.fan_channel.currentData()
         self.current_fan_channels = controllable
+        self.fan_rpm_history.record(d['time'], controllable)
         if available_channels != shown_channels:
             with QSignalBlocker(self.fan_channel):
                 self.fan_channel.clear()

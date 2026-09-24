@@ -90,6 +90,8 @@ def check():
         w.update_data(w.latest)
         assert w.fan_status.isVisible(), 'Fan panel must be on home page'
         assert 'GPU FAN' in w.gpu_fan.text()
+        if w.fan_channel.currentData() is not None:
+            assert 'RPM' in w.fan_trend_info.text(), 'Selected channel should show its read-only RPM history'
         assert w.preset_combo.count() == 3
         assert 'Sabit RPM değil' in w.preset_info.text()
         assert w.theme_combo.count() == len(THEMES) == 7

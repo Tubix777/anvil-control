@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.13.0 — 2026-09-24
+
+- Ana sayfada seçili doğrulanmış fan kanalının son 60 saniyedeki geçerli RPM ölçüm sayısı, aralığı ve iki son ölçüm arasındaki değişim gösteriliyor. Kanal geçmişleri karışmıyor; görünmeyen kanalın geçmişi temizleniyor.
+- Geçmiş yalnız uygulama açıkken bellekte tutuluyor ve raporlara eklenmiyor. Bu gösterge ani hızlanmayı gözlemlemek içindir; nedenini tek başına teşhis etmez.
+- Fan donanımına yazma, güç profili ve ayrıcalıklı yardımcının yetkileri değişmedi.
+
 ## 0.12.4 — 2026-09-24
 
 - Fan arayüzü, ayrıcalıklı yardımcıyla aynı denetleyici kuralını uyguluyor: sistemde birden fazla NCT6798 kimliği görünürse belirsiz kanalları yazılabilir olarak sunmuyor.

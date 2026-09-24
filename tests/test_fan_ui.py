@@ -94,6 +94,35 @@ class FanUiTests(unittest.TestCase):
             finally:
                 window.quit_app()
 
+    def test_recent_rpm_change_follows_selected_channel_without_writes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                sample = dict(time=100.0, cpu_usage=None, cpu_temp=None, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[], gpu={}, profile=None, profiles=[])
+                with patch('anvil.app.channels', return_value=[channel(1, 500), channel(2, 1400)]):
+                    window.update_data(sample)
+                self.assertEqual(window.fan_channel.currentData(), 1)
+                self.assertIn('500 RPM', window.fan_trend_info.text())
+                window.fan_channel.setCurrentIndex(1)
+                self.assertIn('1400 RPM', window.fan_trend_info.text())
+                with patch('anvil.app.channels', return_value=[channel(1, 900), channel(2, 1300)]):
+                    window.update_data(dict(sample, time=102.0))
+                self.assertIn('1300–1400 RPM', window.fan_trend_info.text())
+                self.assertIn('100 RPM / 2 sn', window.fan_trend_info.text())
+                window.fan_channel.setCurrentIndex(0)
+                self.assertIn('500–900 RPM', window.fan_trend_info.text())
+                self.assertIn('+400 RPM / 2 sn', window.fan_trend_info.text())
+                with patch('anvil.app.channels', return_value=[]):
+                    window.update_data(dict(sample, time=104.0))
+                self.assertIsNone(window.fan_channel.currentData())
+                self.assertIn('fan kanalı seçin', window.fan_trend_info.text())
+            finally:
+                window.quit_app()
+
     def test_async_feedback_keeps_original_channel_after_selection_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
