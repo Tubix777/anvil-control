@@ -1,5 +1,11 @@
 # Değişiklikler
 
+## 0.13.12 — 2026-10-01
+
+- Sensör ve donanım tabloları mevcut hücreleri yeniden kullanır; yalnız değişen metinler güncellenir. Sabit bilgiler her ölçümde yeniden oluşturulmaz.
+- Canlı değer güncellemesi, seçili satırın korunması ve filtreleme sırasında eski değerlerin temizlenmesi test edildi.
+- Yerel, ekransız 64 × 5 hücre ölçümünde (1.000 yenileme, beş koşunun ortancası) tablo güncelleme süresi değişmeyen veride %66, satır başına bir değer değiştiğinde %51 azaldı. Bu, uygulamanın toplam CPU kullanımı ölçümü değildir.
+
 ## 0.13.11 — 2026-09-24
 
 - Fan eğrisi işleminin başarı mesajı artık dönen her sıcaklık ve PWM noktasını gönderilen eğriyle birebir karşılaştırıyor. Mod doğru olsa bile noktalardan biri farklıysa doğrulanmış başarı iddia edilmiyor.

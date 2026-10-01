@@ -409,10 +409,17 @@ def table(headers):
 
 
 def rows(widget, data):
-    widget.setRowCount(len(data))
+    """Reuse table cells and notify Qt only when their displayed text changes."""
+    if widget.rowCount() != len(data):
+        widget.setRowCount(len(data))
     for i, row in enumerate(data):
         for j, value in enumerate(row):
-            widget.setItem(i, j, QTableWidgetItem(str(value)))
+            text = str(value)
+            item = widget.item(i, j)
+            if item is None:
+                widget.setItem(i, j, QTableWidgetItem(text))
+            elif item.text() != text:
+                item.setText(text)
 
 
 def fmt(v, unit='', digits=0):

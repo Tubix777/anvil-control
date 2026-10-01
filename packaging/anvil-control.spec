@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.13.11
+Version:        0.13.12
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,9 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Thu Oct 01 2026 Anvil contributors - 0.13.12-1
+- Reuse existing table cells and update only changed display text.
+- Cover live readings, selection retention and sensor filtering regressions.
 * Thu Sep 24 2026 Anvil contributors - 0.13.11-1
 - Match every returned curve temperature and PWM value against requested points.
 - Reject false success feedback when curve readback differs from the sent payload.
