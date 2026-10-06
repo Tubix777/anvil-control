@@ -8,7 +8,8 @@ from unittest.mock import patch
 
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QSettings, Qt
+from PySide6.QtTest import QTest
 from PySide6.QtGui import QAccessible
 from PySide6.QtWidgets import QApplication, QDialogButtonBox, QLabel
 
@@ -29,6 +30,115 @@ class FanUiTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
         configure_style(cls.app)
+
+    def test_portable_monitor_only_guards_direct_hardware_write_calls(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with (patch.dict(os.environ, {'ANVIL_MONITOR_ONLY': '1'}),
+                  patch('anvil.app.QSettings', return_value=settings),
+                  patch.object(Window, 'refresh')):
+                window = Window()
+            try:
+                sample = dict(time=1.0, cpu_usage=None, cpu_temp=None, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[], gpu={}, profile='balanced',
+                              profiles=[{'Profile': {'data': 'balanced'}}])
+                with (patch('anvil.app.channels', return_value=[channel(1, 900)]),
+                      patch('anvil.app.Path.exists', return_value=True)):
+                    window.update_data(sample)
+                self.assertTrue(window.fan_channel.isEnabled())
+                self.assertTrue(all(not b.isEnabled() for b in window.fan_controls))
+                self.assertTrue(all(not b.isEnabled() for b in window.profile_buttons.values()))
+                self.assertIn('yalnız izleme', window.fan_feedback.text())
+                window.rgb_devices.addItem('RGB', {'id': 0, 'modes': ['Static']})
+                self.assertFalse(window.rgb_apply.isEnabled())
+                with (patch.object(window, 'run_hardware') as run,
+                      patch('anvil.app.ProfileWorker') as profile_worker,
+                      patch('anvil.app.QProcess.startDetached') as start_rgb):
+                    window.fan_action('full')
+                    window.apply_rgb()
+                    window.apply_profile('balanced')
+                    window.open_rgb()
+                run.assert_not_called()
+                profile_worker.assert_not_called()
+                start_rgb.assert_not_called()
+            finally:
+                window.quit_app()
+
+    def test_malformed_active_profile_does_not_interrupt_live_ui_updates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                sample = dict(time=1.0, cpu_usage=20, cpu_temp=42, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[], gpu={}, profiles=[])
+                for value in ([], {'data': 'balanced'}, 12, None):
+                    with self.subTest(profile=value), patch('anvil.app.channels', return_value=[]):
+                        window.update_data(dict(sample, profile=value))
+                    self.assertIn('Servise erişilemiyor', window.active_profile.text())
+                    self.assertEqual(window.cards['cpu'].text(), '42 °C')
+                    self.assertTrue(all(not b.isChecked() for b in window.profile_buttons.values()))
+            finally:
+                window.quit_app()
+
+    def test_hidden_fan_details_keep_live_readings_and_open_from_keyboard(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                self.assertTrue(window.fan_details.isHidden())
+                window.current_fan_channels = [channel(1, 912)]
+                window.fan_channel.clear()
+                window.fan_channel.addItem('Kanal 1', 1)
+                window.update_current_fan_curve()
+                self.assertIn('PECI Agent 0', window.fan_curve_info.text())
+                QTest.keyClick(window.fan_details_toggle, Qt.Key.Key_Space)
+                self.assertFalse(window.fan_details.isHidden())
+                self.assertIn('gizle', window.fan_details_toggle.text())
+                self.assertTrue(window.fan_details_toggle.isChecked())
+                QTest.keyClick(window.fan_details_toggle, Qt.Key.Key_Space)
+                self.assertTrue(window.fan_details.isHidden())
+                self.assertIn('kapalı', window.fan_details_toggle.accessibleDescription())
+            finally:
+                window.quit_app()
+
+    def test_readonly_control_metadata_keeps_thermal_cruise_scope_explicit(self):
+        item = channel(1, 900)
+        item.update(temp_tolerance_c=0, critical_tolerance_c=2,
+                    start_duty=0.4, floor_duty=0.4, stop_time_ms=24000)
+        text = hardware_fan_curve_text(item)
+        self.assertIn('histerezisi: 0 °C / kritik 2 °C', text)
+        self.assertIn('Thermal Cruise ayarları (mod 2)', text)
+        self.assertIn('durma garantisi değildir', text)
+
+    def test_repeated_zero_readings_are_visible_and_follow_channel_and_freshness(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = QSettings(str(Path(directory) / 'settings.ini'), QSettings.Format.IniFormat)
+            with patch('anvil.app.QSettings', return_value=settings), patch.object(Window, 'refresh'):
+                window = Window()
+            try:
+                sample = dict(time=0, cpu_usage=None, cpu_temp=None, cpu_mhz=None,
+                              memory_used=None, memory_total=None, disk_used=0, disk_total=0,
+                              uptime='', sensors=[], gpu={}, profile=None, profiles=[])
+                for index, rpm in enumerate([900, 0, 900, 0, 900]):
+                    with patch('anvil.app.channels', return_value=[channel(1, rpm), channel(2, 1200)]):
+                        window.update_data(dict(sample, time=index * 2))
+                self.assertTrue(window.fan_details.isHidden())
+                self.assertFalse(window.fan_cycle_info.isHidden())
+                self.assertIn('Sıfır RPM okumaları tekrarlandı', window.fan_cycle_info.text())
+                interface = QAccessible.queryAccessibleInterface(window.fan_cycle_info)
+                self.assertIn('Sıfır RPM', interface.text(QAccessible.Text.Name))
+                window.fan_channel.setCurrentIndex(1)
+                self.assertTrue(window.fan_cycle_info.isHidden())
+                window.fan_channel.setCurrentIndex(0)
+                self.assertFalse(window.fan_cycle_info.isHidden())
+                window.on_error('ölçüm kesildi')
+                self.assertTrue(window.fan_cycle_info.isHidden())
+            finally:
+                window.quit_app()
 
     def test_only_one_spinning_channel_is_preferred_without_socket_guess(self):
         items = [channel(1, 0), channel(2, 1400)]

@@ -1,15 +1,71 @@
 import unittest
 import tempfile
+import os
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 from subprocess import CompletedProcess, TimeoutExpired
-from anvil.backend import sensors, number, set_profile, property_value, cpu_temperature, is_asus_vendor, AmdGpu, Monitor
+from anvil.backend import sensors, number, set_profile, property_value, cpu_temperature, is_asus_vendor, AmdGpu, Monitor, distribution, profile_names
 from anvil.fans import supports_fan_write
 from anvil.compat import capability_report
 
 
 class BackendTests(unittest.TestCase):
+    @patch('anvil.backend.platform.freedesktop_os_release', return_value={
+        'PRETTY_NAME': 'Zorin OS 18', 'ID': 'zorin', 'VERSION_ID': '18'})
+    def test_distribution_identity_uses_standard_os_release(self, release):
+        self.assertEqual(distribution(), {'name': 'Zorin OS 18', 'id': 'zorin', 'version': '18'})
+
+    @patch('anvil.backend.platform.freedesktop_os_release', side_effect=OSError)
+    def test_distribution_fallback_handles_quotes_and_malformed_entries(self, release):
+        with patch('anvil.backend.read', return_value='\n'.join([
+                '# ignored', 'PRETTY_NAME="Deepin Linux"', 'ID=deepin',
+                'VERSION_ID="25"', 'BROKEN="unfinished', 'NOT A KEY=ignored'])):
+            self.assertEqual(distribution(), {'name': 'Deepin Linux', 'id': 'deepin', 'version': '25'})
+        with patch('anvil.backend.read', return_value=''), patch('anvil.backend.platform.system', return_value='Linux'):
+            self.assertEqual(distribution()['name'], 'Linux')
+
+    def test_non_utf8_os_release_uses_available_fallback_without_abort(self):
+        error = UnicodeDecodeError('utf-8', b'\xff', 0, 1, 'invalid byte')
+        with (patch('anvil.backend.platform.freedesktop_os_release', side_effect=error),
+              patch('anvil.backend.read', side_effect=['', 'PRETTY_NAME="Fallback Linux"\nID=linux'])):
+            self.assertEqual(distribution()['name'], 'Fallback Linux')
+
+    def test_malformed_active_profile_json_is_normalized_before_reaching_ui(self):
+        monitor = Monitor.__new__(Monitor)
+        monitor.previous = None
+        monitor.gpu = SimpleNamespace(sample=lambda: None)
+        monitor.amd_gpu = SimpleNamespace(sample=lambda: None)
+        for value in ([], {'data': 'balanced'}, 12, False, '', 'balanced'):
+            with self.subTest(service_value=value), \
+                 patch('anvil.backend.read', return_value=''), \
+                 patch('anvil.backend.sensors', return_value=[]), \
+                 patch('anvil.backend.run', return_value=json.dumps({'data': value})), \
+                 patch('anvil.backend.shutil.disk_usage', return_value=SimpleNamespace(used=0, total=0)):
+                sample = monitor.sample()
+            self.assertEqual(sample['profile'], 'balanced' if value == 'balanced' else None)
+
+    def test_missing_optional_tools_do_not_execute_discovery_commands(self):
+        with (patch('anvil.backend.shutil.which', return_value=None),
+              patch('anvil.backend.run') as execute):
+            identity = Monitor.__new__(Monitor).discover()
+        self.assertEqual(identity['pci'], '')
+        self.assertIsNone(identity['openrgb'])
+        self.assertIsNone(identity['tools']['busctl'])
+        execute.assert_not_called()
+        sample = {'sensors': [], 'profiles': [], 'gpu': None}
+        rows = dict(capability_report(identity, sample, [], monitor_only=True)[1])
+        self.assertIn('pciutils', rows['İsteğe bağlı araçlar'])
+
+    def test_malformed_profile_service_data_does_not_allow_writes(self):
+        malformed = [None, 'balanced', {'Profile': None}, {'Profile': {'data': 1}}]
+        self.assertEqual(profile_names(malformed), [])
+        self.assertEqual(profile_names({'Profile': {'data': 'balanced'}}), [])
+        with patch('anvil.backend.property_value', return_value=malformed), patch('anvil.backend.subprocess.run') as execute:
+            self.assertFalse(set_profile('balanced')[0])
+        execute.assert_not_called()
+
     def test_missing_proc_metrics_leave_unknown_values_without_crash(self):
         monitor = Monitor.__new__(Monitor)
         monitor.previous = None
@@ -85,8 +141,12 @@ class BackendTests(unittest.TestCase):
         self.assertIn('görül', dict(rows)['PWM arayüzleri'])
         identity.update(board='PRIME H610M-K D4')
         overview, rows = capability_report(identity, sample, [1], helper_installed=False)
-        self.assertIn('RPM gerekli', overview)
-        self.assertIn('RPM yardımcısı gerekli', dict(rows)['Anakart fan yazımı'])
+        self.assertIn('yardımcı gerekli', overview)
+        self.assertIn('fan yardımcısı gerekli', dict(rows)['Anakart fan yazımı'])
+        overview, rows = capability_report(identity, sample, [1], monitor_only=True)
+        self.assertIn('Fan yazma: kapalı', overview)
+        self.assertIn('yalnız izleme', dict(rows)['Anakart fan yazımı'])
+        self.assertIn('değiştirme kapalı', dict(rows)['Güç profilleri'])
         identity['vendor'] = 'Other vendor'
         identity['asus'] = False
         self.assertIn('ASUS dışı', capability_report(identity, sample, [])[0])
@@ -139,6 +199,16 @@ class BackendTests(unittest.TestCase):
         self.assertFalse(set_profile('invalid')[0])
         execute.assert_not_called()
 
+    @patch('anvil.backend.subprocess.run')
+    @patch('anvil.backend.property_value')
+    def test_monitor_only_profile_never_reads_or_writes_dbus(self, prop, execute):
+        with patch.dict(os.environ, {'ANVIL_MONITOR_ONLY': '1'}):
+            ok, message = set_profile('balanced')
+        self.assertFalse(ok)
+        self.assertIn('yalnız izleme', message)
+        prop.assert_not_called()
+        execute.assert_not_called()
+
     @patch('anvil.backend.subprocess.run', return_value=CompletedProcess([], 0, '', ''))
     @patch('anvil.backend.property_value', side_effect=[[{'Profile':{'data':'balanced'}}], 'balanced'])
     def test_verified_profile_success(self, prop, execute):
@@ -159,6 +229,14 @@ class BackendTests(unittest.TestCase):
     @patch('anvil.backend.property_value', return_value=[{'Profile':{'data':'balanced'}}])
     def test_timeout(self, prop, execute):
         self.assertFalse(set_profile('balanced')[0])
+
+    @patch('anvil.backend.property_value', return_value=[{'Profile': {'data': 'balanced'}}])
+    def test_profile_command_decode_error_returns_failure_for_worker(self, prop):
+        error = UnicodeDecodeError('utf-8', b'\xff', 0, 1, 'invalid byte')
+        with patch('anvil.backend.subprocess.run', side_effect=error):
+            success, message = set_profile('balanced')
+        self.assertFalse(success)
+        self.assertTrue(message)
 
 
 if __name__ == '__main__':

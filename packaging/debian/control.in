@@ -1,0 +1,14 @@
+Package: anvil-control
+Version: @VERSION@
+Section: utils
+Priority: optional
+Architecture: @ARCHITECTURE@
+Maintainer: Tubix777 <Tubix777@users.noreply.github.com>
+Depends: @DEPENDS@
+Recommends: pciutils
+Installed-Size: @INSTALLED_SIZE@
+Description: Desktop hardware monitor for Linux
+ Anvil Control displays available sensor readings, fan speeds, GPU telemetry,
+ and hardware inventory in a Qt desktop application.
+ This Debian-family package starts in monitoring-only mode. It includes no
+ privileged helper and changes no fan, power-profile, RGB or kernel settings.

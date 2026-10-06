@@ -111,3 +111,66 @@ class FanRpmHistory:
                 f'{_display_number(min(rpms))}–{_display_number(max(rpms))} RPM · '
                 f'Son değişim {sign}{_display_number(abs(delta))} RPM / '
                 f'{_display_number(current_time - previous_time)} sn.')
+
+    def diagnostics(self, channel: int | None) -> dict:
+        """Describe repeated readback patterns, not a fan's physical state.
+
+        Consecutive observations must be at most five seconds apart. Gaps and
+        zero readings interrupt direction comparisons; small sensor jitter is
+        ignored. These thresholds classify observations, never control hardware.
+        """
+        channel = _channel_number(channel)
+        samples = self._samples.get(channel, ())
+        result = {'sample_count': len(samples), 'observed_seconds': 0.0,
+                  'zero_transitions': 0, 'resume_transitions': 0,
+                  'substantial_reversals': 0, 'abrupt_changes': 0,
+                  'repeated_zero_cycle': False, 'oscillating': False, 'abrupt': False}
+        if len(samples) < 2:
+            return result
+        result['observed_seconds'] = samples[-1][0] - samples[0][0]
+        previous_direction = 0
+        for (previous_time, previous_rpm), (now, rpm) in zip(samples, list(samples)[1:]):
+            elapsed = now - previous_time
+            if not 0 < elapsed <= 5:
+                previous_direction = 0
+                continue
+            if previous_rpm > 0 and rpm == 0:
+                result['zero_transitions'] += 1
+            elif previous_rpm == 0 and rpm > 0:
+                result['resume_transitions'] += 1
+            if previous_rpm == 0 or rpm == 0:
+                previous_direction = 0
+                continue
+            delta = rpm - previous_rpm
+            magnitude = abs(delta)
+            scale = max(rpm, previous_rpm)
+            if magnitude >= max(300, scale * 0.25):
+                result['abrupt_changes'] += 1
+            if magnitude < max(100, scale * 0.15):
+                continue
+            direction = 1 if delta > 0 else -1
+            if previous_direction and direction != previous_direction:
+                result['substantial_reversals'] += 1
+            previous_direction = direction
+        result['repeated_zero_cycle'] = (result['zero_transitions'] >= 2
+                                         and result['resume_transitions'] >= 2)
+        result['oscillating'] = result['substantial_reversals'] >= 3
+        result['abrupt'] = result['abrupt_changes'] >= 2
+        return result
+
+    def diagnostic_summary(self, channel: int | None) -> str:
+        """Return an actionable read-only observation only after repetition."""
+        result = self.diagnostics(channel)
+        if result['repeated_zero_cycle']:
+            return (f"Kanal {channel} · Sıfır RPM okumaları tekrarlandı: "
+                    f"{result['zero_transitions']} sıfıra geçiş / "
+                    f"{result['resume_transitions']} pozitif devre dönüş. "
+                    'Fan bağlantısını ve BIOS Q-Fan ayarını kontrol edin.')
+        if result['oscillating']:
+            return (f"Kanal {channel} · Devir belirgin biçimde dalgalandı: "
+                    f"{result['substantial_reversals']} yön değişimi. "
+                    'Fan ayrıntılarındaki sıcaklık kaynağı, tepki süresi ve toleransı inceleyin.')
+        if result['abrupt']:
+            return (f"Kanal {channel} · Kısa aralıklarla {result['abrupt_changes']} "
+                    'belirgin devir değişimi okundu. Fan ayrıntılarındaki tepki süresini inceleyin.')
+        return ''

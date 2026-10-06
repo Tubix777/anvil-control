@@ -1,0 +1,7 @@
+#!/usr/bin/python3
+"""Start the read-only app with its user-private bundled Qt runtime."""
+import os
+import sys
+
+os.execv('/usr/bin/python3', ['/usr/bin/python3',
+         '/usr/share/anvil-control/portable/install.py', '--run', *sys.argv[1:]])

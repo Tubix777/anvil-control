@@ -36,6 +36,14 @@ def _raw_int(path):
         return None
 
 
+def _optional_value(hw, name, minimum, maximum, divisor=1):
+    """Do not turn malformed or unsupported control metadata into a real setting."""
+    value = _raw_int(hw/name)
+    if value is None or not minimum <= value <= maximum:
+        return None
+    return value / divisor
+
+
 def _secondary_source(hw, stem):
     """Read optional NCT6798 weighted temperature selection without gating a channel."""
     selection_path = hw/f'{stem}_weight_temp_sel'
@@ -83,6 +91,8 @@ def fan_result(ok, output, error, action, channel, requested_points=None):
                     or verified[f'{stem}_auto_point{index}_pwm'] != round(speed * 255 / 100)):
                 return False, ('Fan eğrisi geri okuması istenen noktalarla uyuşmuyor; '
                                'donanım eğrisini yeniden inceleyin.')
+    if result.get('unchanged') is True:
+        return True, 'İstenen fan ayarı zaten etkin; donanımdan doğrulandı, yeniden yazılmadı.'
     return True, 'Fan ayarı uygulandı ve donanımdan geri okunarak doğrulandı.'
 
 
@@ -121,8 +131,18 @@ def channels(root=Path('/sys/class/hwmon'), board=None, vendor=None):
         item = {'channel':n, 'rpm':number(hw/f'fan{n}_input'),
                 'mode':mode, 'duty':number(hw/f'pwm{n}', 2.55),
                 'source_label':source_label, 'source_temp':source_temp/1000,
-                'step_up_ms':number(hw/f'{stem}_step_up_time'),
-                'step_down_ms':number(hw/f'{stem}_step_down_time'),
+                # nct6775-core represents fan times as an 8-bit count, scaled
+                # by at most 400 ms. Zero is a valid BIOS readback.
+                'step_up_ms':_optional_value(hw, f'{stem}_step_up_time', 0, 102000),
+                'step_down_ms':_optional_value(hw, f'{stem}_step_down_time', 0, 102000),
+                'temp_tolerance_c':_optional_value(hw, f'{stem}_temp_tolerance', 0, 127000, 1000),
+                'critical_tolerance_c':_optional_value(hw, f'{stem}_crit_temp_tolerance', 0, 127000, 1000),
+                # The kernel documents start/floor/stop under Thermal Cruise.
+                # These are controller readbacks, not an active zero-RPM promise
+                # for Smart Fan IV or proof of a fan's restart capability.
+                'start_duty':_optional_value(hw, f'{stem}_start', 1, 255, 2.55),
+                'floor_duty':_optional_value(hw, f'{stem}_floor', 0, 255, 2.55),
+                'stop_time_ms':_optional_value(hw, f'{stem}_stop_time', 0, 102000),
                 'points':[[temp/1000, speed/2.55] for temp, speed in raw_points]}
         secondary = _secondary_source(hw, stem)
         if secondary is not None:

@@ -97,6 +97,73 @@ class FanRpmHistoryTests(unittest.TestCase):
             with self.subTest(window=window, count=count), self.assertRaises(ValueError):
                 FanRpmHistory(window, count)
 
+    def test_repeated_zero_readback_cycles_are_reported_without_physical_claim(self):
+        history = FanRpmHistory()
+        for timestamp, rpm in enumerate((800, 0, 850, 0, 900)):
+            history.record(timestamp * 2, [fan(1, rpm), fan(2, 1400)])
+        result = history.diagnostics(1)
+        self.assertTrue(result['repeated_zero_cycle'])
+        self.assertEqual(result['zero_transitions'], 2)
+        self.assertEqual(result['resume_transitions'], 2)
+        self.assertEqual(result['observed_seconds'], 8)
+        message = history.diagnostic_summary(1)
+        self.assertIn('Sıfır RPM okumaları tekrarlandı', message)
+        self.assertIn('2 sıfıra geçiş / 2 pozitif devre dönüş', message)
+        self.assertNotIn('fan durdu', message)
+        self.assertEqual(history.diagnostic_summary(2), '')
+
+    def test_single_zero_readback_and_small_sensor_jitter_are_not_a_cycle(self):
+        for rpms in ((800, 0, 850), (1000, 1020, 990, 1030, 995, 1040)):
+            with self.subTest(rpms=rpms):
+                history = FanRpmHistory()
+                for timestamp, rpm in enumerate(rpms):
+                    history.record(timestamp * 2, [fan(1, rpm)])
+                result = history.diagnostics(1)
+                self.assertFalse(result['repeated_zero_cycle'])
+                self.assertFalse(result['oscillating'])
+                self.assertFalse(result['abrupt'])
+                self.assertEqual(history.diagnostic_summary(1), '')
+
+    def test_substantial_repeated_direction_changes_are_distinct_from_increases(self):
+        history = FanRpmHistory()
+        for timestamp, rpm in enumerate((600, 1200, 700, 1300, 650)):
+            history.record(timestamp * 2, [fan(1, rpm)])
+        result = history.diagnostics(1)
+        self.assertEqual(result['substantial_reversals'], 3)
+        self.assertTrue(result['oscillating'])
+        self.assertIn('3 yön değişimi', history.diagnostic_summary(1))
+        history.clear()
+        for timestamp, rpm in enumerate((600, 950, 1400)):
+            history.record(timestamp * 2, [fan(1, rpm)])
+        result = history.diagnostics(1)
+        self.assertFalse(result['oscillating'])
+        self.assertTrue(result['abrupt'])
+        self.assertEqual(result['abrupt_changes'], 2)
+        self.assertIn('2 belirgin devir değişimi', history.diagnostic_summary(1))
+
+    def test_sparse_sampling_never_infers_quick_cycles_or_direction_reversals(self):
+        for rpms in ((800, 0, 900, 0, 850), (600, 1200, 700, 1300, 650)):
+            history = FanRpmHistory()
+            for timestamp, rpm in enumerate(rpms):
+                history.record(timestamp * 10, [fan(1, rpm)])
+            result = history.diagnostics(1)
+            self.assertFalse(result['repeated_zero_cycle'])
+            self.assertFalse(result['oscillating'])
+            self.assertFalse(result['abrupt'])
+            self.assertEqual(history.diagnostic_summary(1), '')
+
+    def test_expired_or_missing_readings_cannot_keep_a_cycle_warning(self):
+        history = FanRpmHistory(window_seconds=10)
+        for timestamp, rpm in enumerate((800, 0, 900, 0, 850)):
+            history.record(timestamp * 2, [fan(1, rpm)])
+        self.assertTrue(history.diagnostics(1)['repeated_zero_cycle'])
+        history.record(20, [fan(1, 850)])
+        self.assertEqual(history.diagnostic_summary(1), '')
+        history.record(21, [fan(1, None)])
+        self.assertEqual(history.diagnostics(1)['sample_count'], 0)
+        self.assertEqual(history.diagnostic_summary(1), '')
+        self.assertEqual(history.diagnostic_summary(None), '')
+
 
 if __name__ == '__main__':
     unittest.main()

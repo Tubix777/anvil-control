@@ -86,21 +86,44 @@ def transact(hw, channel, action, points, directory=Path('/run/anvil-control')):
                 target[f'{stem}_auto_point{i}_pwm'] = round(speed*255/100)
         else:
             raise ValueError('Geçersiz işlem.')
+        if before == target:
+            # Applying the active curve again must not briefly switch the fan
+            # to full speed. Read every field again before reporting this no-op.
+            verified = {key: read(key) for key in fields}
+            if verified != target:
+                raise RuntimeError('Donanım ayarı tekrar okuma sırasında değişti.')
+            return {'ok': True, 'channel': channel, 'action': action,
+                    'unchanged': True, 'verified': verified}
         try:
             write(stem+'_enable', 0)
             for key in fields[1:]:
                 if read(key) != target[key]:
                     write(key, target[key])
             write(stem+'_enable', target[stem+'_enable'])
+            verified = {key: read(key) for key in fields}
+            if verified != target:
+                raise RuntimeError('Fan ayarının son geri okuması hedefle uyuşmuyor.')
         except Exception:
             # Stay at full speed if rollback itself fails.
-            write(stem+'_enable', 0)
-            for key in fields[1:]:
-                if read(key) != before[key]:
-                    write(key, before[key])
-            write(stem+'_enable', before[stem+'_enable'])
+            try:
+                write(stem+'_enable', 0)
+                for key in fields[1:]:
+                    if read(key) != before[key]:
+                        write(key, before[key])
+                write(stem+'_enable', before[stem+'_enable'])
+                if {key: read(key) for key in fields} != before:
+                    raise RuntimeError('Başlangıç ayarının son geri okuması uyuşmuyor.')
+            except Exception as rollback_error:
+                try:
+                    write(stem+'_enable', 0)
+                except Exception as full_error:
+                    raise RuntimeError('Geri alma ve tam hız geri okuması başarısız; '
+                                       'fan ayarını BIOS üzerinden kontrol edin.') from full_error
+                raise RuntimeError('Geri alma başarısız; tam hız modu geri okunarak '
+                                   'doğrulandı. Fan ayarını BIOS üzerinden kontrol edin.') from rollback_error
             raise
-        return {'ok': True, 'channel': channel, 'action': action, 'verified': {key: read(key) for key in fields}}
+        return {'ok': True, 'channel': channel, 'action': action,
+                'unchanged': False, 'verified': verified}
 
 
 def main():

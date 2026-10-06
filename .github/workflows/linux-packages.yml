@@ -1,0 +1,79 @@
+name: Linux packages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-packages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libgl1 libegl1 libopengl0 libglib2.0-0 libfontconfig1 libdbus-1-3 libxkbcommon0
+          python -m pip install PySide6-Essentials==6.11.2 build
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Version
+        id: version
+        run: python -c 'from anvil import __version__; print("version=" + __version__)' >> "$GITHUB_OUTPUT"
+      - name: Build distributable packages
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p artifacts wheel-cache
+          python packaging/portable/build_bundle.py --wheel-directory wheel-cache --output "artifacts/anvil-control-${VERSION}-linux-x86_64.tar.gz"
+          python packaging/debian/build_deb.py --bundle "artifacts/anvil-control-${VERSION}-linux-x86_64.tar.gz" --output "artifacts/anvil-control_${VERSION}~alpha1-1_amd64.deb"
+          python packaging/debian/build_deb.py --system-qt --output "artifacts/anvil-control_${VERSION}~alpha1-1_all.deb"
+          python -m build --wheel --outdir artifacts
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: linux-packages
+          path: artifacts/
+
+  install:
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { image: 'ubuntu:22.04', mode: bundled }
+          - { image: 'ubuntu:24.04', mode: bundled }
+          - { image: 'ubuntu:26.04', mode: bundled }
+          - { image: 'debian:trixie', mode: bundled }
+          - { image: 'debian:trixie', mode: system }
+          - { image: 'linuxdeepin/deepin:25', mode: bundled }
+          - { image: 'archlinux:latest', mode: portable }
+          - { image: 'registry.fedoraproject.org/fedora:44', mode: portable }
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: linux-packages
+          path: artifacts/
+      - name: Install and open as an unprivileged desktop user
+        env:
+          IMAGE: ${{ matrix.image }}
+          MODE: ${{ matrix.mode }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          docker run --rm -v "$PWD:/workspace:ro" -w /workspace "$IMAGE" sh .ci/smoke-linux.sh "$MODE" "$VERSION" /workspace/artifacts

@@ -1,6 +1,6 @@
 # ANVIL CONTROL
 
-**ASUS sistemleri için Fedora’da yerel donanım kontrolü.** Anakart ve Linux’un sunduğu özellikler otomatik algılanır; desteklenmeyen donanıma ayar yazılmaz.
+**Linux’ta yerel donanım izleme; doğrulanmış Fedora donanımında sınırlı kontrol.** Anakart ve sistemin sunduğu özellikler otomatik algılanır. Ubuntu, Debian ve Deepin için DEB, diğer uygun Linux sistemleri için taşınabilir paket bulunur.
 
 [![Release](https://img.shields.io/github/v/release/Tubix777/anvil-control?include_prereleases&color=ffd438)](https://github.com/Tubix777/anvil-control/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
@@ -30,12 +30,43 @@ Bu nedenle uygulama farklı ASUS sistemlerinde genel izleme için kullanılabili
 
 Doğrulanmamış ASUS kartlarında hazır eğri **önizlemesi**, kartın mevcut donanım eğrisi değildir. Anvil bu kartların mevcut eğrisini göstermez veya fanlarına yazmaz; sürücü sunuyorsa fan devir sensörleri yine izlenebilir.
 
-## Kurulum — Fedora 44 KDE
+## İndirme ve dağıtım seçimi
+
+| Kurulum | İndirilecek dosya | Kapsam |
+| --- | --- | --- |
+| Fedora 44 | `anvil-control-0.14.0-1.fc44.noarch.rpm` | İzleme ve doğrulanmış donanımda mevcut kontrol |
+| Ubuntu 22.04 / 24.04, Debian 13, Deepin 25 · x86_64 | `anvil-control_0.14.0~alpha1-1_amd64.deb` | Kendi Qt’siyle izleme |
+| Debian 13 / Ubuntu 26.04 · sistem PySide6’si mevcutsa | `anvil-control_0.14.0~alpha1-1_all.deb` | Daha küçük, sistem Qt’siyle izleme |
+| Uygun diğer Linux x86_64 sistemleri | `anvil-control-0.14.0-linux-x86_64.tar.gz` | Çevrimdışı özel Qt ortamıyla izleme |
+
+İki DEB çeşidinden yalnız birini kurun. Yeni dağıtım paketleri fan, güç veya RGB
+ayarlarını değiştirmez; Fedora’nın donanım desteği diğer dağıtımlarda doğrulanmış
+sayılmaz. [Dağıtım testleri, Zorin durumu ve gereksinimler](docs/linux-support.md).
+
+### Ubuntu / Debian / Deepin
+
+```bash
+sudo apt install ./anvil-control_0.14.0~alpha1-1_amd64.deb
+anvil-control
+```
+
+Uygulama menüsündeki **Anvil Control** başlatıcısı da kullanılabilir. İlk açılış
+Qt’yi paketteki doğrulanmış dosyalardan kullanıcıya özel bir ortamda hazırlar;
+internetten kod indirmez, sistem Python’unu değiştirmez. GUI’yi `sudo` ile açmayın.
+
+### Taşınabilir Linux paketi
+
+Arşivi açın, çıkan klasörde `./anvil-control` çalıştırın. Menüye eklemek için
+`python3 install.py --desktop` kullanın ve klasörü aynı yerde tutun. Linux x86_64,
+glibc ≥ 2.34, Python 3.10–3.14, venv ve masaüstü kütüphaneleri gerekir.
+[Ayrıntılı gereksinimler](packaging/portable/README.md).
+
+### Fedora 44 KDE
 
 [Sürümlerden](https://github.com/Tubix777/anvil-control/releases) RPM’yi indirin:
 
 ```bash
-sudo dnf install ./anvil-control-0.13.12-1.fc44.noarch.rpm
+sudo dnf install ./anvil-control-0.14.0-1.fc44.noarch.rpm
 anvil-control
 ```
 
@@ -63,7 +94,9 @@ Fan eğrisi ve son devir değişimi metinleri ekran okuyucularında da seçili k
 
 NCT6798 Smart Fan IV’te okunan ilk dört nokta normal eğridir; beşinci nokta ayrı bir kritik sıcaklık eşiğidir. Arayüz kritik PWM geri okumasını gösterir, ancak eşikte mutlaka %100 devir olacağını iddia etmez. Kritik eşik dördüncü noktadan düşük sıcaklıkta bulunabilir; bu yüzden beşinci nokta normal artan eğri adımı gibi yorumlanmamalıdır.
 
-Seçili doğrulanmış kanalın son 60 saniyedeki RPM aralığı ve son iki geçerli ölçüm arasındaki fark da ana sayfada görünür. Bu geçmiş yalnızca uygulama açıkken bellekte tutulur, raporlara eklenmez ve ani artışın nedenini tek başına açıklamaz. Başka ASUS modellerinde yazılabilir kanal doğrulanmadıkça bu kanal geçmişi gösterilmez; genel sensör okumaları yine görülebilir.
+**Fan ayrıntılarını göster** düğmesi mevcut eğriyi, sıcaklık kaynağını, tepki sürelerini ve son 60 saniyenin devir geçmişini açar. Ayrıntılar başlangıçta kapalıdır; canlı fan devirleri ve denetimler ana sayfada kalır. Geçmiş yalnız bellekte tutulur, raporlara eklenmez ve ani artışın nedenini tek başına açıklamaz. Başka ASUS modellerinde doğrulanmış kanal olmadan bu kanal geçmişi gösterilmez; genel sensör okumaları yine görülebilir.
+
+Tekrarlanan sıfır RPM okumaları, belirgin yön değişimleri veya ani devir değişimleri olduğunda kısa bir gözlem mesajı görünür. Küçük sensör oynamaları, tek bir sıfır okuması ve ölçüm boşlukları döngü sayılmaz. Bu gözlem fiziksel fanın gerçekten durduğunu veya arızanın nedenini kanıtlamaz. Okunabiliyorsa sıcaklık toleransı ve kritik tolerans gösterilir; başlangıç/taban/durma alanları Thermal Cruise kapsamıyla ayrı açıklanır.
 
 İzleme duraklatılırsa veya ölçüm alınamazsa genel fan devir listesi, seçili kanal RPM’si ve donanım eğrisi **son okuma** olarak işaretlenir; geçmiş canlıymış gibi gösterilmez. Yeniden başarılı ölçüm alındığında işaret kalkar ve RPM değişimi yeni bir geçmişten hesaplanır.
 
@@ -74,6 +107,8 @@ Fan yazma yardımcısı kurulu olmasa veya başka bir donanım işlemi sürse de
 Fan işlem mesajında hedef kanal numarası görünür. Özel eğri düzenleyicisi açıkken kanal seçimi değişirse uygulama yazmayı iptal eder; yeni kanal için düzenleyiciyi yeniden açın.
 
 Eğri işleminin başarı mesajı, yardımcıdan geri okunan beş sıcaklık ve PWM noktasının gönderilen değerlerle birebir eşleşmesini gerektirir. Uyuşmazlıkta başarı bildirilmez; donanım eğrisini yeniden inceleyin.
+
+Zaten etkin olan aynı ayar tekrar uygulanırsa yardımcı bütün alanları yeniden doğrular ve donanıma yazmaz; gereksiz tam hız geçişi oluşmaz. Gerçek eğri değişikliklerinde mevcut tam hız işlem aşaması korunur. Son geri okuma ve geri alma da bütün alanları doğrular; geri alma başarısızsa tam hız doğrulanmaya çalışılır. Bu değişiklik BIOS kaynaklı devir dalgalanmasının bütünüyle çözüldüğü anlamına gelmez. Hazır eğriler %50’den başladığı için mevcut BIOS eğrisinden daha hızlı döndürebilir.
 
 Fan işlemi sürerken donanım eğrisi dosyaları sırayla değişebileceği için bu sıradaki ara okuma mevcut eğri diye gösterilmez. İşlem tamamlandıktan sonra yapılan başarılı yeni ölçümle eğri tekrar görünür; o zamana kadar fan ayarı düğmeleri kapalı kalır.
 
@@ -98,11 +133,11 @@ python3 -m unittest discover -s tests -v
 QT_QPA_PLATFORM=offscreen PYTHONPATH=. python3 tests/smoke_ui.py
 ```
 
-68 birim testi ve gerçek sensör telemetrisiyle beş bölümlü arayüz testi. Smoke testi yalnızca mevcut sistemde çalışır. Bu bağımsız alpha proje ASUS/Fedora tarafından onaylanmamıştır. Anakart çizimi temsili şemadır, pin bağlantısı değildir. AMD GPU desteği sysfs fikstürleriyle sınandı; gerçek AMD donanımında henüz doğrulanmadı. JSON tanılama raporunu paylaşmadan önce içeriğini inceleyin; raporda kart/BIOS, PCI ve sensör bilgileri bulunur.
+98 birim testi ve mevcut Fedora donanımında salt okunur arayüz testi; ek dağıtımlarda kurulu paketten ekransız ve sanal X11 pencere açılışı testleri. [Doğrulama matrisi](docs/linux-support.md) hangi sonucun paket açılışı, hangisinin fiziksel donanım testi olduğunu belirtir. Yeni fan işlem davranışı geçici dosya testleriyle sınanır; bu güncelleme sırasında canlı fanlara yazılmadı. Bu bağımsız alpha proje ASUS veya dağıtım üreticileri tarafından onaylanmamıştır. Anakart çizimi temsili şemadır, pin bağlantısı değildir. AMD GPU desteği sysfs fikstürleriyle sınandı; gerçek AMD donanımında henüz doğrulanmadı. JSON tanılama raporunu paylaşmadan önce içeriğini inceleyin; raporda kart/BIOS, PCI ve sensör bilgileri bulunur.
 
 ## English
 
-Local Fedora hardware monitoring and controls for ASUS systems. Board identity and available Linux sensor interfaces are discovered dynamically, with a per-system capability matrix. NVIDIA NVML and experimental read-only AMDGPU sysfs telemetry are supported. Seven persistent themes are available. Writable motherboard fan curves remain restricted to the physically validated PRIME H610M-K D4 / NCT6798 profile; monitoring may work on other ASUS boards without fan-write support. Experimental alpha.
+Local Linux hardware monitoring with per-system capabilities and seven persistent themes. Bundled and native-Qt DEBs and an offline x86_64 archive extend monitoring beyond Fedora; consult the [tested distribution matrix](docs/linux-support.md). New distribution packages disable fan, power and RGB writes. Fedora control remains restricted to the previously validated PRIME H610M-K D4 / NCT6798 profile. Reapplying an identical fan setting now verifies it without a full-speed pulse; changed curves retain the transaction and rollback safeguards. Experimental alpha.
 
 ## Kaynaklar
 

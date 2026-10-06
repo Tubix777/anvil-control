@@ -11,4 +11,10 @@ Değişiklikler için birim testlerini çalıştırın. GUI değişikliklerinde
 `tests/smoke_ui.py` testini uygun donanım üzerinde kullanın ve görünümü inceleyin.
 Fan testleri normal birim testlerde geçici dosyalarla yapılır, gerçek donanıma yazmaz.
 
+Linux paketleri için `docs/linux-support.md` test matrisini güncelleyin.
+`packaging/portable/test_container.py` kurulu paketi geçici Podman ortamında
+ekransız ve X11 ile açar. Test edilmeyen türev dağıtımı desteklenmiş saymayın.
+Konteyner testleri fiziksel sensör/fan doğrulamasının yerine geçmez. GitHub Actions
+matrisi sürüm paketlerini gerçek kaynaklardan yeniden üretip sınar.
+
 Kod MIT lisansı altındadır. Görseller ve üçüncü taraf içerikler için lisansını belirtin.

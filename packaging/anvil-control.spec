@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.13.12
+Version:        0.14.0
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,11 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Tue Oct 06 2026 Anvil contributors - 0.14.0-1
+- Introduce portable Linux and Debian monitoring packages.
+- Simplify home fan details and show distribution capabilities explicitly.
+- Avoid needless full-speed transitions when reapplying an identical fan curve.
+- Add read-only fan cycling and controller timing diagnostics.
 * Thu Oct 01 2026 Anvil contributors - 0.13.12-1
 - Reuse existing table cells and update only changed display text.
 - Cover live readings, selection retention and sensor filtering regressions.

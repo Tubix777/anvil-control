@@ -2,7 +2,9 @@
 import ctypes as C
 import json
 from math import isfinite
+import os
 import platform
+import shlex
 import shutil
 import subprocess
 import time
@@ -20,7 +22,7 @@ def run(args):
     try:
         p = subprocess.run(args, capture_output=True, text=True, timeout=5)
         return p.stdout.strip() if p.returncode == 0 else ""
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, UnicodeError, subprocess.TimeoutExpired):
         return ""
 
 
@@ -43,6 +45,29 @@ def cpu_temperature(readings):
 def is_asus_vendor(vendor):
     """Recognize DMI ASUS and ASUSTeK spellings without guessing from model text."""
     return 'asus' in (vendor or '').casefold()
+
+
+def distribution():
+    """Read the standard Linux identity file without evaluating shell syntax."""
+    try:
+        data = platform.freedesktop_os_release()
+    except (AttributeError, OSError, UnicodeError):
+        data = {}
+        contents = read('/etc/os-release') or read('/usr/lib/os-release')
+        for line in contents.splitlines():
+            if '=' not in line or line.lstrip().startswith('#'):
+                continue
+            key, value = line.split('=', 1)
+            if not key or not all(char.isupper() or char.isdigit() or char == '_' for char in key):
+                continue
+            try:
+                words = shlex.split(value)
+            except ValueError:
+                continue
+            if len(words) == 1:
+                data[key] = words[0]
+    return dict(name=data.get('PRETTY_NAME') or data.get('NAME') or platform.system(),
+                id=data.get('ID', 'linux'), version=data.get('VERSION_ID', ''))
 
 
 def sensors(root=Path('/sys/class/hwmon')):
@@ -69,9 +94,26 @@ def property_value(name):
         return None
 
 
+def profile_names(profiles):
+    """Ignore unavailable or malformed service entries without breaking telemetry."""
+    if not isinstance(profiles, list):
+        return []
+    names = []
+    for profile in profiles:
+        if not isinstance(profile, dict):
+            continue
+        descriptor = profile.get('Profile')
+        name = descriptor.get('data') if isinstance(descriptor, dict) else None
+        if isinstance(name, str) and name and name not in names:
+            names.append(name)
+    return names
+
+
 def set_profile(profile):
+    if os.environ.get('ANVIL_MONITOR_ONLY') == '1':
+        return False, 'Bu kurulum yalnız izleme içindir; güç profili değiştirilmedi.'
     available = property_value('Profiles') or []
-    allowed = [p.get('Profile', {}).get('data') for p in available]
+    allowed = profile_names(available)
     if profile not in allowed:
         return False, 'Bu profil sistem tarafından sunulmuyor.'
     try:
@@ -81,7 +123,7 @@ def set_profile(profile):
             return False, p.stderr.strip() or 'Profil değiştirilemedi.'
         actual = property_value('ActiveProfile')
         return actual == profile, ('Profil uygulandı.' if actual == profile else 'Profil değişikliği doğrulanamadı.')
-    except (OSError, subprocess.TimeoutExpired) as e:
+    except (OSError, UnicodeError, subprocess.TimeoutExpired) as e:
         return False, str(e)
 
 
@@ -173,7 +215,8 @@ class Monitor:
         self.identity = self.discover()
 
     def discover(self):
-        osdata = dict(line.split('=', 1) for line in read('/etc/os-release').splitlines() if '=' in line)
+        distro = distribution()
+        tools = {name: shutil.which(name) for name in ('lspci', 'busctl', 'openrgb', 'pkexec')}
         cpu = next((x.split(':', 1)[1].strip() for x in read('/proc/cpuinfo').splitlines()
                     if x.startswith('model name')), 'Bilinmiyor')
         vendor = read('/sys/class/dmi/id/board_vendor')
@@ -182,11 +225,11 @@ class Monitor:
                     vendor=vendor, asus=is_asus_vendor(vendor),
                     bios=read('/sys/class/dmi/id/bios_version'),
                     bios_date=read('/sys/class/dmi/id/bios_date'),
-                    os=osdata.get('PRETTY_NAME', platform.system()).strip('"'),
+                    os=distro['name'], distro_id=distro['id'], distro_version=distro['version'],
                     kernel=platform.release(), cpu=cpu,
-                    pci=run(['lspci', '-k']),
+                    pci=run([tools['lspci'], '-k']) if tools['lspci'] else '',
                     pwm=[str(p) for p in Path('/sys/class/hwmon').glob('hwmon*/pwm[0-9]')],
-                    openrgb=shutil.which('openrgb'))
+                    openrgb=tools['openrgb'], tools=tools)
 
     def sample(self):
         try:
@@ -216,10 +259,13 @@ class Monitor:
         cpu_temp = cpu_temperature(ss)
         disk = shutil.disk_usage('/')
         uptime = read('/proc/uptime').split()
+        active_profile = property_value('ActiveProfile')
+        if not isinstance(active_profile, str) or not active_profile:
+            active_profile = None
         return dict(time=time.time(), cpu_usage=usage, cpu_temp=cpu_temp,
                     cpu_mhz=number('/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq', 1000),
                     memory_used=memory_used, memory_total=memory_total,
                     disk_used=disk.used, disk_total=disk.total,
                     uptime=uptime[0] if uptime else '', sensors=ss,
                     gpu=self.gpu.sample() or self.amd_gpu.sample(),
-                    profile=property_value('ActiveProfile'), profiles=property_value('Profiles') or [])
+                    profile=active_profile, profiles=property_value('Profiles') or [])

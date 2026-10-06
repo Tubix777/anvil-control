@@ -1,0 +1,8 @@
+#!/usr/bin/python3
+"""Launch the Debian-family monitoring package."""
+import sys
+
+sys.path.insert(0, '/usr/share/anvil-control')
+from anvil.launcher import main
+
+main()

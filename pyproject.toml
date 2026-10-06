@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anvil-control"
+dynamic = ["version"]
+description = "Linux desktop hardware monitor"
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+license = "MIT"
+dependencies = ["PySide6-Essentials==6.11.2"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: X11 Applications :: Qt",
+  "Operating System :: POSIX :: Linux",
+]
+
+[project.urls]
+Homepage = "https://github.com/Tubix777/anvil-control"
+Issues = "https://github.com/Tubix777/anvil-control/issues"
+
+[project.scripts]
+anvil-control = "anvil.launcher:main"
+
+[tool.setuptools]
+packages = ["anvil"]
+
+[tool.setuptools.dynamic]
+version = {attr = "anvil.__version__"}

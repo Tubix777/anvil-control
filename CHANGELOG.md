@@ -1,5 +1,16 @@
 # Değişiklikler
 
+## 0.14.0 — 2026-10-06
+
+- Fedora dışına yönelik iki DEB çeşidi, Qt bağımlılıklarını yanında taşıyan çevrimdışı Linux x86_64 arşivi ve standart Python wheel paketi eklendi. İlk açılış Qt’yi özel kullanıcı ortamında hazırlar; sistem Python’unu değiştirmez.
+- Ubuntu 22.04/24.04, Debian 13, Ubuntu 26.04, Deepin 25 ve Arch için kurulum/pencere açılışı testleri yapıldı; gerçek donanım desteği ayrı tutuldu. Zorin ayrı ortamda henüz sınanmadı.
+- Yeni dağıtım paketlerinde fan, güç profili ve RGB yazımı kapalıdır. Konsol ve `python -m anvil` başlatmaları da izleme modunu etkinleştirir. Fedora’nın mevcut kontrol başlatıcısı korunur.
+- Ana ekran sadeleşti: teknik fan eğrisi ve devir geçmişi klavyeyle açılan ayrıntı panelinde; canlı devirler ve kontroller görünür kaldı. Sistem dağıtımı ve eksik isteğe bağlı araçlar gösterilir.
+- Zaten etkin olan aynı fan ayarını tekrar uygulamak artık gereksiz tam hız geçişi yapmaz. Bütün alanlar yeniden doğrulanır. Gerçek değişikliklerin son geri okuma ve geri alma kontrolleri güçlendirildi.
+- Tekrarlanan sıfır RPM okumaları, belirgin dalgalanma ve ani değişimler gözlem mesajı üretir. Tolerans ve tepki süreleri okunur; bu, BIOS kaynaklı dalgalanmanın tamamen giderildiği iddiası değildir.
+- Bozuk profil verisi, hatalı kodlanmış `os-release` ve profil komutunun metin çözümleme hatası için çökme/askıda kalma düzeltmeleri eklendi.
+- Dağıtım paketleri için ekransız ve sanal X11 test düzeneği ile GitHub Actions matrisi eklendi. Qt dosyaları ve kaynak/lisans bildirimi hash ile doğrulanır.
+
 ## 0.13.12 — 2026-10-01
 
 - Sensör ve donanım tabloları mevcut hücreleri yeniden kullanır; yalnız değişen metinler güncellenir. Sabit bilgiler her ölçümde yeniden oluşturulmaz.

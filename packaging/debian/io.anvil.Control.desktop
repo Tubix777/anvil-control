@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Anvil Control
+Comment=Linux hardware monitoring
+Exec=anvil-control
+Icon=io.anvil.Control
+Terminal=false
+Categories=System;Monitor;
+StartupWMClass=anvil-control

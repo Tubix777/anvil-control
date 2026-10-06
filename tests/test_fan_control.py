@@ -122,6 +122,34 @@ class FanTests(unittest.TestCase):
             self.assertIsNone(item['step_down_ms'])
             self.assertEqual(item['source_temp'], 40.0)
 
+    def test_optional_control_metadata_is_converted_and_malformed_values_are_hidden(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hw = self.fixture(root)
+            (hw/'name').write_text('nct6798')
+            values = {'temp_tolerance': ('3000', 'temp_tolerance_c', 3.0),
+                      'crit_temp_tolerance': ('2000', 'critical_tolerance_c', 2.0),
+                      'start': ('128', 'start_duty', 128/2.55),
+                      'floor': ('0', 'floor_duty', 0.0),
+                      'stop_time': ('24000', 'stop_time_ms', 24000.0),
+                      'step_up_time': ('0', 'step_up_ms', 0.0),
+                      'step_down_time': ('1500', 'step_down_ms', 1500.0)}
+            for suffix, (value, _, _) in values.items():
+                (hw/f'pwm1_{suffix}').write_text(value)
+            item, = channels(root, 'PRIME H610M-K D4', 'ASUS')
+            for suffix, (_, key, expected) in values.items():
+                self.assertEqual(item[key], expected)
+                path = hw/f'pwm1_{suffix}'
+                for invalid in ('NaN', '-1', '999999999999999999999999'):
+                    with self.subTest(suffix=suffix, invalid=invalid):
+                        path.write_text(invalid)
+                        selected, = channels(root, 'PRIME H610M-K D4', 'ASUS')
+                        self.assertIsNone(selected[key])
+                        self.assertEqual(selected['source_temp'], 40.0)
+                path.unlink()
+                selected, = channels(root, 'PRIME H610M-K D4', 'ASUS')
+                self.assertIsNone(selected[key])
+
     def test_optional_secondary_source_never_hides_an_otherwise_valid_channel(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -251,6 +279,83 @@ class FanTests(unittest.TestCase):
             with patch.object(Path, 'write_text', write), self.assertRaises(OSError):
                 helper.transact(hw, 1, 'curve', CURVE, root/'state')
             self.assertEqual({p.name:p.read_text() for p in hw.iterdir()}, before)
+
+    def test_reapplying_active_curve_or_full_speed_never_writes_to_hardware(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hw = self.fixture(root)
+            helper.transact(hw, 1, 'curve', CURVE, root/'state')
+            with patch.object(Path, 'write_text', side_effect=AssertionError('unnecessary hardware write')):
+                result = helper.transact(hw, 1, 'curve', CURVE, root/'state')
+            self.assertTrue(result['unchanged'])
+            accepted, message = fan_result(True, json.dumps(result), '', 'curve', 1, CURVE)
+            self.assertTrue(accepted)
+            self.assertIn('yeniden yazılmadı', message)
+            helper.transact(hw, 1, 'full', None, root/'state')
+            with patch.object(Path, 'write_text', side_effect=AssertionError('unnecessary hardware write')):
+                result = helper.transact(hw, 1, 'full', None, root/'state')
+            self.assertTrue(result['unchanged'])
+            self.assertEqual(result['verified']['pwm1_enable'], 0)
+
+    def test_noop_must_recheck_all_fields_without_writing_on_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hw = self.fixture(root)
+            helper.transact(hw, 1, 'curve', CURVE, root/'state')
+            original = Path.read_text
+            reads = [0]
+
+            def read(path, *args, **kwargs):
+                if path.name == 'pwm1_auto_point3_temp':
+                    reads[0] += 1
+                    if reads[0] == 2:
+                        return '59000'
+                return original(path, *args, **kwargs)
+
+            with patch.object(Path, 'read_text', read), patch.object(
+                    Path, 'write_text', side_effect=AssertionError('no-op must remain read-only')):
+                with self.assertRaisesRegex(RuntimeError, 'tekrar okuma'):
+                    helper.transact(hw, 1, 'curve', CURVE, root/'state')
+            self.assertEqual((hw/'pwm1_enable').read_text(), '5')
+
+    def test_final_readback_drift_is_a_failure_and_restores_initial_curve(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hw = self.fixture(root)
+            before = {p.name:p.read_text() for p in hw.iterdir()}
+            original = Path.write_text
+            drifted = [False]
+
+            def write(path, data, *args, **kwargs):
+                result = original(path, data, *args, **kwargs)
+                if path.name == 'pwm1_enable' and data == '5' and not drifted[0]:
+                    drifted[0] = True
+                    original(hw/'pwm1_auto_point2_temp', '44000')
+                return result
+
+            with patch.object(Path, 'write_text', write):
+                with self.assertRaisesRegex(RuntimeError, 'son geri okuması'):
+                    helper.transact(hw, 1, 'curve', CURVE, root/'state')
+            self.assertEqual({p.name:p.read_text() for p in hw.iterdir()}, before)
+
+    def test_failed_rollback_mode_write_returns_to_verified_full_speed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            hw = self.fixture(root)
+            original = Path.write_text
+
+            def write(path, data, *args, **kwargs):
+                result = original(path, data, *args, **kwargs)
+                if path.name == 'pwm1_auto_point2_temp' and data == '45000':
+                    raise OSError('curve failure after write')
+                if path.name == 'pwm1_enable' and data == '5':
+                    raise OSError('rollback failure after restoring automatic mode')
+                return result
+
+            with patch.object(Path, 'write_text', write):
+                with self.assertRaisesRegex(RuntimeError, 'tam hız modu geri okunarak doğrulandı'):
+                    helper.transact(hw, 1, 'curve', CURVE, root/'state')
+            self.assertEqual((hw/'pwm1_enable').read_text(), '0')
 
     def test_rgb_modes(self):
         devices = parse_devices('Connection attempt failed\n0: Kingston Fury\n  Modes: [Direct] Static "Color Cycle"\n')

@@ -1,6 +1,7 @@
 import csv
 import json
 import math
+import os
 import re
 import sys
 import shutil
@@ -14,7 +15,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, 
     QLabel, QPushButton, QFrame, QStackedWidget, QGridLayout, QTableWidget, QTableWidgetItem,
     QHeaderView, QTextEdit, QFileDialog, QMessageBox, QComboBox, QSystemTrayIcon, QMenu,
     QCheckBox, QScrollArea, QLineEdit, QSpinBox, QGraphicsOpacityEffect, QDialog, QDialogButtonBox, QColorDialog)
-from .backend import Monitor, set_profile
+from .backend import Monitor, set_profile, profile_names
 from .widgets import Meter, FanRotor
 from .insights import ThermalAlerts, SensorStats
 from . import __version__
@@ -475,6 +476,22 @@ def hardware_fan_curve_text(item):
     if all(isinstance(value, (int, float)) and math.isfinite(value) and value >= 0 for value in (up, down)):
         details.append(f'Fan tepki süresi: hızlanma {up:g} ms / yavaşlama {down:g} ms'
                        + (' (gecikme yok)' if up == down == 0 else ''))
+    tolerance = item.get('temp_tolerance_c')
+    critical_tolerance = item.get('critical_tolerance_c')
+    if isinstance(tolerance, (int, float)) and math.isfinite(tolerance) and tolerance >= 0:
+        hysteresis = f'Okunan sıcaklık histerezisi: {tolerance:g} °C'
+        if isinstance(critical_tolerance, (int, float)) and math.isfinite(critical_tolerance) and critical_tolerance >= 0:
+            hysteresis += f' / kritik {critical_tolerance:g} °C'
+        details.append(hysteresis)
+    cruise = []
+    for key, description, unit in [('start_duty', 'başlatma PWM', '%'),
+                                    ('floor_duty', 'taban PWM', '%'), ('stop_time_ms', 'durma gecikmesi', 'ms')]:
+        value = item.get(key)
+        if isinstance(value, (int, float)) and math.isfinite(value) and value >= 0:
+            cruise.append(f'{description} {value:g} {unit}')
+    if cruise:
+        details.append('Thermal Cruise ayarları (mod 2): ' + ', '.join(cruise)
+                       + (' · etkin modda durma garantisi değildir' if mode != '2' else ''))
     points = item.get('points')
     if (not isinstance(points, (list, tuple)) or len(points) != 5
             or any(not isinstance(point, (list, tuple)) or len(point) != 2
@@ -620,6 +637,7 @@ class Window(QMainWindow):
         self.resize(1280, 1000)
         self.setMinimumSize(940, 680)
         self.settings = QSettings('Anvil', 'AnvilControl')
+        self.monitor_only = os.environ.get('ANVIL_MONITOR_ONLY') == '1'
         self.theme_key = resolve_theme(self.settings.value('theme', DEFAULT_THEME, type=str))
         self.motion = self.settings.value('motion', True, type=bool)
         self.stats = SensorStats()
@@ -648,7 +666,9 @@ class Window(QMainWindow):
         sl = QVBoxLayout(side)
         sl.setContentsMargins(15, 24, 15, 18)
         sl.addWidget(label('ANVIL', 'brand'))
-        sl.addWidget(label('ASUS  /  FEDORA', 'muted'))
+        sl.addWidget(label('ASUS  /  LINUX', 'muted'))
+        self.installation_scope = label('Yalnız izleme' if self.monitor_only else 'Donanıma göre kontrol', 'accent')
+        sl.addWidget(self.installation_scope)
         sl.addSpacing(22)
         self.stack = QStackedWidget()
         self.nav = []
@@ -727,7 +747,8 @@ class Window(QMainWindow):
         return frame, val
 
     def build_overview(self):
-        l = self.page('Kontrol sende.', 'Donanımın, sıcaklıkların ve fanların tek ekranda.')
+        l = self.page('Canlı görünüm' if self.monitor_only else 'Kontrol sende.',
+                      'Donanımın, sıcaklıkların ve fanların tek ekranda.')
         self.status = label('Sensörler okunuyor…', 'muted')
         l.addWidget(self.status)
         self.compatibility = label('Model ve kullanılabilir özellikler algılanıyor…', 'accent')
@@ -776,6 +797,10 @@ class Window(QMainWindow):
         fv.addLayout(fh)
         self.fan_status = label('Fan arayüzleri taranıyor…')
         fv.addWidget(self.fan_status)
+        self.fan_cycle_info = label('', 'accent')
+        self.fan_cycle_info.setAccessibleDescription('Seçili fan kanalının devir değişimi uyarısı')
+        self.fan_cycle_info.hide()
+        fv.addWidget(self.fan_cycle_info)
         self.fan_readings = label('', 'accent')
         fv.addWidget(self.fan_readings)
         control_row = QHBoxLayout()
@@ -797,10 +822,8 @@ class Window(QMainWindow):
         fv.addLayout(control_row)
         self.fan_curve_info = label('Seçili kanalın donanım eğrisi okunuyor…', 'muted')
         self.fan_curve_info.setAccessibleDescription('Seçili fan kanalının donanım eğrisi')
-        fv.addWidget(self.fan_curve_info)
         self.fan_trend_info = label('Fan devir geçmişi için ölçüm bekleniyor…', 'muted')
         self.fan_trend_info.setAccessibleDescription('Seçili fan kanalının son devir değişimi')
-        fv.addWidget(self.fan_trend_info)
         preset_row = QHBoxLayout()
         preset_row.addWidget(label('Hazır hız eğrisi', 'section'))
         self.preset_combo = QComboBox()
@@ -815,7 +838,22 @@ class Window(QMainWindow):
         fv.addLayout(preset_row)
         self.preset_info = label('', 'muted')
         fv.addWidget(self.preset_info)
-        fv.addWidget(label('Fan eğrileri etkin yerel oturumda şifre sormadan uygulanır; yalnızca doğrulanmış kart ve kanallar desteklenir.', 'muted'))
+        self.fan_details_toggle = QPushButton('Fan ayrıntılarını göster')
+        self.fan_details_toggle.setCheckable(True)
+        self.fan_details_toggle.setAccessibleName('Fan eğrisi ve devir geçmişi ayrıntıları')
+        self.fan_details_toggle.setAccessibleDescription('Ayrıntılar kapalı. Boşluk veya Enter ile açabilirsiniz.')
+        self.fan_details = QWidget()
+        details_layout = QVBoxLayout(self.fan_details)
+        details_layout.setContentsMargins(0, 0, 0, 0)
+        details_layout.addWidget(self.fan_curve_info)
+        details_layout.addWidget(self.fan_trend_info)
+        details_layout.addWidget(label('Bu kurulum yalnız izleme içindir; fan, güç profili ve RGB değiştirme kapalıdır.'
+                                       if self.monitor_only else
+                                       'Fan eğrileri etkin yerel oturumda şifre sormadan uygulanır; yalnızca doğrulanmış kart ve kanallar desteklenir.', 'muted'))
+        self.fan_details.hide()
+        self.fan_details_toggle.toggled.connect(self.show_fan_details)
+        fv.addWidget(self.fan_details_toggle)
+        fv.addWidget(self.fan_details)
         self.update_preset_info()
         self.fan_feedback = label('Kontrol desteği denetleniyor…', 'muted')
         fv.addWidget(self.fan_feedback)
@@ -857,7 +895,9 @@ class Window(QMainWindow):
         self.sensor_table.setMinimumHeight(360)
         l.addWidget(self.sensor_table)
         l.addWidget(button('Min / maks değerlerini sıfırla', self.reset_stats))
-        l.addWidget(label('Fan kontrolü ana sayfada. Eğri anakartın denetleyicisine yazılır ve uygulama kapansa da çalışır. Önceki ayarlar düğmesi bu açılıştaki ilk değişiklik öncesine döner.', 'muted'))
+        l.addWidget(label('Bu kurulum yalnız izleme içindir; fan, güç profili ve RGB değiştirme kapalıdır.'
+                          if self.monitor_only else
+                          'Fan kontrolü ana sayfada. Eğri anakartın denetleyicisine yazılır ve uygulama kapansa da çalışır. Önceki ayarlar düğmesi bu açılıştaki ilk değişiklik öncesine döner.', 'muted'))
 
     def build_profiles(self):
         l = self.page('Güç profilleri', 'Sistemin sunduğu profiller • Değişiklikler tüm sistem için geçerlidir')
@@ -874,7 +914,9 @@ class Window(QMainWindow):
             self.profile_buttons[key] = b
             l.addWidget(b)
             l.addWidget(label(detail, 'muted'))
-        self.profile_feedback = label('Bu profiller özel fan eğrisi veya GPU hız aşırtması uygulamaz.', 'muted')
+        self.profile_feedback = label('Bu kurulumda güç profili değiştirme kapalı; etkin profil yalnız gösterilir.'
+                                      if self.monitor_only else
+                                      'Bu profiller özel fan eğrisi veya GPU hız aşırtması uygulamaz.', 'muted')
         l.addWidget(self.profile_feedback)
         l.addStretch()
 
@@ -895,10 +937,12 @@ class Window(QMainWindow):
         self.rgb_apply.setEnabled(False)
         l.addWidget(self.rgb_apply)
         l.addWidget(button('Cihazları tara', self.scan_rgb))
-        self.rgb_status = label('Cihazları tara düğmesiyle mevcut RGB aygıtlarını sorgulayın.', 'muted')
+        self.rgb_status = label('Bu kurulumda RGB ayarı kapalı; cihaz taraması salt okunurdur.'
+                                if self.monitor_only else
+                                'Cihazları tara düğmesiyle mevcut RGB aygıtlarını sorgulayın.', 'muted')
         l.addWidget(self.rgb_status)
         b = button('OpenRGB’yi aç', self.open_rgb)
-        b.setEnabled(bool(self.monitor.identity['openrgb']))
+        b.setEnabled(bool(self.monitor.identity['openrgb']) and not self.monitor_only)
         l.addWidget(b)
         l.addWidget(label('OpenRGB bulundu.' if self.monitor.identity['openrgb'] else 'OpenRGB bu sistemde kurulu değil.', 'muted'))
         l.addStretch()
@@ -921,7 +965,7 @@ class Window(QMainWindow):
         l.addWidget(label('PCI aygıtları ve sürücüler', 'section'))
         text = QTextEdit()
         text.setReadOnly(True)
-        text.setPlainText(info['pci'] or 'lspci kullanılamıyor.')
+        text.setPlainText(info['pci'] or 'PCI listesi alınamadı. İsteğe bağlı pciutils aracı (lspci) ve erişim durumunu kontrol edin.')
         text.setMinimumHeight(190)
         l.addWidget(text)
 
@@ -982,7 +1026,9 @@ class Window(QMainWindow):
         l.addWidget(self.threshold)
         l.addWidget(label('Bu eşik kişisel bir bildirim tercihidir; donanımın güvenli sıcaklık sınırı değildir. Tekrarlanan uyarı için sıcaklığın önce eşiğin 5 °C altına düşmesi gerekir. Duraklatıldığında uyarılar da durur.', 'muted'))
         l.addWidget(label('Grafikte son 120 ölçüm; dışa aktarma için bellekte son 3.600 ölçüm tutulur. Uygulama kapanınca geçmiş silinir. Yalnızca dışa aktardığınız kayıtlar diske yazılır.', 'muted'))
-        fan_scope = ('Fan yazma: bu kartta doğrulanmış profil algılandı; güvenli kanal da gerekli.'
+        fan_scope = ('Bu paket yalnız izleme içindir; fan, güç profili ve RGB değiştirme kapalıdır.'
+                     if self.monitor_only else
+                     'Fan yazma: bu kartta doğrulanmış profil algılandı; güvenli kanal da gerekli.'
                      if supports_fan_write(self.monitor.identity['board'], self.monitor.identity['vendor'])
                      else 'Fan yazma, her anakart için ayrı doğrulama gerektirir ve burada kapalıdır.')
         l.addWidget(label(f'Anvil Control {__version__} • Alpha\nASUS tarafından geliştirilmemiş bağımsız proje.\n{fan_scope}\nRGB desteği algılanan OpenRGB aygıtlarına bağlıdır.', 'muted'))
@@ -1207,7 +1253,15 @@ class Window(QMainWindow):
         points = preset_points(self.preset_combo.currentData())
         if points:
             self.preset_info.setText(' · '.join(f'{temp} °C → %{speed}' for temp, speed in points)
-                                     + '  |  Sabit RPM değil; sıcaklığa göre donanım eğrisi.')
+                                     + '  |  Sabit RPM değil; sıcaklığa göre donanım eğrisi. '
+                                     'Uygulamak mevcut fan hızını artırabilir.')
+
+    def show_fan_details(self, expanded):
+        self.fan_details.setVisible(expanded)
+        self.fan_details_toggle.setText('Fan ayrıntılarını gizle' if expanded else 'Fan ayrıntılarını göster')
+        self.fan_details_toggle.setAccessibleDescription(
+            'Ayrıntılar açık. Boşluk veya Enter ile kapatabilirsiniz.' if expanded else
+            'Ayrıntılar kapalı. Boşluk veya Enter ile açabilirsiniz.')
 
     def update_current_fan_curve(self, *args):
         channel = self.fan_channel.currentData()
@@ -1226,6 +1280,10 @@ class Window(QMainWindow):
                 curve = 'Son başarılı donanım okuması; güncel olmayabilir.\n' + curve
         self.fan_curve_info.setText(curve)
         self.fan_trend_info.setText(self.fan_readback_state or self.fan_rpm_history.summary(channel))
+        diagnostic = ('' if self.fan_readback_state or self.fan_curve_readback_pending else
+                      self.fan_rpm_history.diagnostic_summary(channel))
+        self.fan_cycle_info.setText(diagnostic)
+        self.fan_cycle_info.setVisible(bool(diagnostic))
 
     def apply_fan_preset(self):
         key = self.preset_combo.currentData()
@@ -1238,6 +1296,9 @@ class Window(QMainWindow):
     def fan_action(self, action, points=None, preset_name=None, expected_channel=None):
         helper = '/usr/libexec/anvil-fan-helper'
         channel = self.fan_channel.currentData()
+        if self.monitor_only:
+            self.fan_feedback.setText('Bu kurulum yalnız izleme içindir; fan ayarı değiştirilmedi.')
+            return
         if self.paused or self.fan_readback_state or self.fan_curve_readback_pending:
             self.fan_feedback.setText('Fan ayarı için yeni başarılı ölçüm bekleniyor; işlem iptal edildi.')
             return
@@ -1248,7 +1309,7 @@ class Window(QMainWindow):
             self.fan_feedback.setText('Seçili kanal güvenli fan kontrolü için uygun değil; arayüzü yeniden kontrol edin.')
             return
         if not Path(helper).exists():
-            self.fan_feedback.setText('Fan yardımcısı için güncel Anvil RPM paketini kurun.')
+            self.fan_feedback.setText('Fan yardımcısı için kontrol destekli Anvil paketini kurun.')
             return
         if self.hardware_busy():
             return
@@ -1283,12 +1344,12 @@ class Window(QMainWindow):
         item = self.rgb_devices.currentData()
         if item:
             self.rgb_modes.addItems(item['modes'])
-        self.rgb_apply.setEnabled(bool(item and item['modes']))
+        self.rgb_apply.setEnabled(bool(item and item['modes']) and not self.monitor_only)
 
     def scan_rgb(self):
         path = shutil.which('openrgb')
         if not path:
-            self.rgb_status.setText('OpenRGB kurulu değil. Fedora paketi: sudo dnf install openrgb')
+            self.rgb_status.setText('OpenRGB kurulu değil; dağıtımınızın paket yöneticisinden kurulabilir.')
             return
         if self.hardware_busy():
             return
@@ -1306,6 +1367,9 @@ class Window(QMainWindow):
         self.run_hardware(path, ['--list-devices'], done, 30000)
 
     def apply_rgb(self):
+        if self.monitor_only:
+            self.rgb_status.setText('Bu kurulum yalnız izleme içindir; RGB ayarı değiştirilmedi.')
+            return
         item = self.rgb_devices.currentData()
         mode = self.rgb_modes.currentText()
         if not item or mode not in item['modes'] or self.hardware_busy():
@@ -1394,13 +1458,15 @@ class Window(QMainWindow):
             for index, item in enumerate(controllable):
                 self.fan_channel.setItemText(index, fan_channel_label(item))
         self.update_current_fan_curve()
-        helper_installed = Path('/usr/libexec/anvil-fan-helper').exists()
+        helper_installed = Path('/usr/libexec/anvil-fan-helper').exists() and not self.monitor_only
         enabled = bool(controllable) and helper_installed and not self.hardware_busy()
         # Inspecting read-only hardware curves must not depend on write privileges.
         self.fan_channel.setEnabled(bool(controllable))
         for b in self.fan_controls:
             b.setEnabled(enabled)
-        if not controllable and not self.monitor.identity['asus']:
+        if self.monitor_only:
+            self.fan_feedback.setText('Bu kurulum yalnız izleme içindir; fan ayarı değiştirme kapalıdır.')
+        elif not controllable and not self.monitor.identity['asus']:
             self.fan_feedback.setText('ASUS dışı sistemde fan izleme mümkündür; anakart fan yazımı kapalı.')
         elif not controllable and not supports_fan_write(self.monitor.identity['board'], self.monitor.identity['vendor']):
             self.fan_feedback.setText(
@@ -1409,20 +1475,24 @@ class Window(QMainWindow):
         elif not controllable:
             self.fan_feedback.setText('Doğrulanmış kartta güvenli fan kanalı bulunamadı. Tek NCT6798, PWM/PECI ve donanım eğrisi geri okumalarını kontrol edin.')
         elif not helper_installed:
-            self.fan_feedback.setText('Fan denetleyicisi bulundu. Kontrol için güncel RPM paketini kurun.')
+            self.fan_feedback.setText('Fan denetleyicisi bulundu. Kontrol destekli paketli fan yardımcısı gerekli.')
         elif self.fan_feedback.text() == 'Kontrol desteği denetleniyor…':
             self.fan_feedback.setText('Otomatik eğri / tam hız hazır. Kanal numaraları fiziksel CPU/kasa etiketi değildir.')
         self.fan_status.setText(f'{len(positive_rpm)} pozitif RPM okuması / {len(fans)} devir sensörü • {len(pwm)} PWM arayüzü bulundu.' if fans or pwm
                                else 'Fan devir / PWM arayüzü görünmüyor. Mevcut kernel sürücülerinden fan kontrolü alınamıyor.')
-        overview, capabilities = capability_report(self.monitor.identity, d, available_channels, helper_installed)
+        overview, capabilities = capability_report(self.monitor.identity, d, available_channels,
+                                                   helper_installed, self.monitor_only)
         self.compatibility.setText(overview)
         rows(self.capability_table, capabilities)
         names = {'power-saver':'Enerji tasarrufu', 'balanced':'Dengeli', 'performance':'Performans'}
-        self.active_profile.setText('Etkin profil: ' + names.get(d['profile'], d['profile'] or 'Servise erişilemiyor'))
-        available = [p.get('Profile', {}).get('data') for p in d['profiles']]
+        active_profile = d.get('profile')
+        if not isinstance(active_profile, str) or not active_profile:
+            active_profile = None
+        self.active_profile.setText('Etkin profil: ' + names.get(active_profile, active_profile or 'Servise erişilemiyor'))
+        available = profile_names(d['profiles'])
         for key, b in self.profile_buttons.items():
-            b.setEnabled(key in available and not self.profile_pending)
-            b.setChecked(key == d['profile'])
+            b.setEnabled(key in available and not self.profile_pending and not self.monitor_only)
+            b.setChecked(key == active_profile)
         self.diagnostics.setPlainText('\n\n'.join([
             'SICAKLIKLAR\n' + f"{len(d['sensors'])} sensör okunuyor.",
             'FAN KONTROLÜ\n' + self.fan_status.text() + '\n' + self.fan_feedback.text(),
@@ -1434,6 +1504,9 @@ class Window(QMainWindow):
         ]))
 
     def apply_profile(self, profile):
+        if self.monitor_only:
+            self.profile_feedback.setText('Bu kurulum yalnız izleme içindir; güç profili değiştirilmedi.')
+            return
         if self.profile_pending:
             return
         self.profile_pending = True
@@ -1451,6 +1524,9 @@ class Window(QMainWindow):
         self.refresh()
 
     def open_rgb(self):
+        if self.monitor_only:
+            self.rgb_status.setText('Bu kurulum yalnız izleme içindir; RGB uygulaması açılmadı.')
+            return
         path = self.monitor.identity['openrgb']
         if path:
             success, _ = QProcess.startDetached(path, [])

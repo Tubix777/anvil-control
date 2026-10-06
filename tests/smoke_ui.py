@@ -3,6 +3,7 @@ import csv
 import json
 import tempfile
 import shutil
+import sys
 from pathlib import Path
 from unittest.mock import patch
 from PySide6.QtCore import QTimer, QSettings
@@ -17,13 +18,22 @@ with patch('anvil.app.QSettings', return_value=QSettings(str(Path(test_config.na
     w = Window()
 w.show()
 errors = []
+original_exception_hook = sys.excepthook
+
+
+def callback_error(kind, value, traceback):
+    errors.append(value)
+    original_exception_hook(kind, value, traceback)
+
+
+sys.excepthook = callback_error
 
 
 def check():
     try:
         assert w.latest, 'No live sample received'
         assert w.latest['cpu_temp'] is not None
-        if Path('/usr/libexec/anvil-fan-helper').exists():
+        if Path('/usr/libexec/anvil-fan-helper').exists() and not w.monitor_only:
             assert all(b.isEnabled() for b in w.fan_controls)
         if shutil.which('openrgb'):
             w.scan_rgb()
@@ -34,7 +44,7 @@ def check():
             assert not w.hardware_busy(), 'RGB scan did not finish'
             if w.rgb_devices.count():
                 assert w.rgb_modes.count() > 0
-                assert w.rgb_apply.isEnabled()
+                assert w.rgb_apply.isEnabled() == (not w.monitor_only)
         w.sensor_search.setText('coretemp')
         assert w.sensor_table.rowCount() > 0
         assert all(w.sensor_table.item(i, 0).text() == 'coretemp' for i in range(w.sensor_table.rowCount()))
@@ -58,7 +68,8 @@ def check():
         assert len(w.nav) == 5, 'Navigation should stay focused on five sections'
         assert w.monitor.identity['asus'], 'DMI should identify the ASUS test board'
         assert len(w.diagnostics.toPlainText()) > 0
-        assert w.capability_table.rowCount() == 7
+        assert any(w.capability_table.item(i, 0).text() == 'İşletim sistemi'
+                   for i in range(w.capability_table.rowCount()))
         for n in range(5):
             w.navigate(n)
             app.processEvents()
@@ -93,6 +104,7 @@ def check():
         w.update_data(w.latest)
         assert w.fan_status.isVisible(), 'Fan panel must be on home page'
         assert 'GPU FAN' in w.gpu_fan.text()
+        assert w.fan_details.isHidden(), 'Technical details should be collapsed on first launch'
         if w.fan_channel.currentData() is not None:
             assert 'RPM' in w.fan_trend_info.text(), 'Selected channel should show its read-only RPM history'
             assert 'Kritik eşik:' in w.fan_curve_info.text(), 'Fifth hardware point is a critical threshold'
@@ -121,6 +133,7 @@ def check():
 
 QTimer.singleShot(4500, check)
 app.exec()
+sys.excepthook = original_exception_hook
 if errors:
     raise errors[0]
 test_config.cleanup()
