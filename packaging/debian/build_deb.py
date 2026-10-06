@@ -120,7 +120,7 @@ def main():
     mode.add_argument('--system-qt', action='store_true', help='Use distro python3-pyside6.qtwidgets (all architectures)')
     args = parser.parse_args()
     arch = 'amd64' if args.bundle else 'all'
-    output = args.output or Path.cwd() / ('anvil-control_' + source_version() + '~alpha1-1_' + arch + '.deb')
+    output = args.output or Path.cwd() / ('anvil-control_' + source_version() + '.alpha1-1_' + arch + '.deb')
     if output.suffix != '.deb':
         parser.error('Output path must end in .deb')
     try:

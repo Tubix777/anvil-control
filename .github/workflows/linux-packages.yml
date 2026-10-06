@@ -41,8 +41,8 @@ jobs:
         run: |
           mkdir -p artifacts wheel-cache
           python packaging/portable/build_bundle.py --wheel-directory wheel-cache --output "artifacts/anvil-control-${VERSION}-linux-x86_64.tar.gz"
-          python packaging/debian/build_deb.py --bundle "artifacts/anvil-control-${VERSION}-linux-x86_64.tar.gz" --output "artifacts/anvil-control_${VERSION}~alpha1-1_amd64.deb"
-          python packaging/debian/build_deb.py --system-qt --output "artifacts/anvil-control_${VERSION}~alpha1-1_all.deb"
+          python packaging/debian/build_deb.py --bundle "artifacts/anvil-control-${VERSION}-linux-x86_64.tar.gz" --output "artifacts/anvil-control_${VERSION}.alpha1-1_amd64.deb"
+          python packaging/debian/build_deb.py --system-qt --output "artifacts/anvil-control_${VERSION}.alpha1-1_all.deb"
           python -m build --wheel --outdir artifacts
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:

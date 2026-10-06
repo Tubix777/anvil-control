@@ -46,6 +46,7 @@ class PackagingTests(unittest.TestCase):
             with tarfile.open(fileobj=io.BytesIO(members['control.tar.gz'])) as archive:
                 control = archive.extractfile('./control').read().decode()
                 self.assertIn('Architecture: all', control)
+                self.assertIn('Version: ' + debian.source_version() + '~alpha1-1', control)
                 self.assertIn('python3-pyside6.qtwidgets', control)
                 self.assertEqual(len(archive.getmembers()), 1)
             with tarfile.open(fileobj=io.BytesIO(members['data.tar.gz'])) as archive:

@@ -35,8 +35,8 @@ Doğrulanmamış ASUS kartlarında hazır eğri **önizlemesi**, kartın mevcut 
 | Kurulum | İndirilecek dosya | Kapsam |
 | --- | --- | --- |
 | Fedora 44 | `anvil-control-0.14.0-1.fc44.noarch.rpm` | İzleme ve doğrulanmış donanımda mevcut kontrol |
-| Ubuntu 22.04 / 24.04, Debian 13, Deepin 25 · x86_64 | `anvil-control_0.14.0~alpha1-1_amd64.deb` | Kendi Qt’siyle izleme |
-| Debian 13 / Ubuntu 26.04 · sistem PySide6’si mevcutsa | `anvil-control_0.14.0~alpha1-1_all.deb` | Daha küçük, sistem Qt’siyle izleme |
+| Ubuntu 22.04 / 24.04, Debian 13, Deepin 25 · x86_64 | `anvil-control_0.14.0.alpha1-1_amd64.deb` | Kendi Qt’siyle izleme |
+| Debian 13 / Ubuntu 26.04 · sistem PySide6’si mevcutsa | `anvil-control_0.14.0.alpha1-1_all.deb` | Daha küçük, sistem Qt’siyle izleme |
 | Uygun diğer Linux x86_64 sistemleri | `anvil-control-0.14.0-linux-x86_64.tar.gz` | Çevrimdışı özel Qt ortamıyla izleme |
 
 İki DEB çeşidinden yalnız birini kurun. Yeni dağıtım paketleri fan, güç veya RGB
@@ -46,7 +46,7 @@ sayılmaz. [Dağıtım testleri, Zorin durumu ve gereksinimler](docs/linux-suppo
 ### Ubuntu / Debian / Deepin
 
 ```bash
-sudo apt install ./anvil-control_0.14.0~alpha1-1_amd64.deb
+sudo apt install ./anvil-control_0.14.0.alpha1-1_amd64.deb
 anvil-control
 ```
 

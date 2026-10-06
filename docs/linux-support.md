@@ -50,7 +50,7 @@ olarak açın. [Taşınabilir paket yönergeleri](../packaging/portable/README.m
 ```bash
 QT_QPA_PLATFORM=offscreen python3 -m unittest discover -s tests -v
 QT_QPA_PLATFORM=offscreen PYTHONPATH=. python3 tests/smoke_ui.py
-python3 packaging/portable/test_container.py --image docker.io/library/ubuntu:24.04 --artifact /tam/yol/anvil-control_0.14.0~alpha1-1_amd64.deb
+python3 packaging/portable/test_container.py --image docker.io/library/ubuntu:24.04 --artifact /tam/yol/anvil-control_0.14.0.alpha1-1_amd64.deb
 ```
 
 Bu sürümün 98 birim testi geçti. Son komut yalnız oluşturduğu, adı tekil olan geçici Podman konteynerini değiştirir

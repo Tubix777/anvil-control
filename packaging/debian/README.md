@@ -4,8 +4,10 @@ The default release DEB embeds the verified Qt wheels and application source fro
 the portable Linux archive. It installs normal system GUI dependencies through
 apt, then creates a private runtime as your normal desktop user on first launch.
 It never downloads code during installation or modifies system Python with pip.
-Use `sudo apt install ./anvil-control_<version>~alpha1-1_amd64.deb` so apt resolves
+Use `sudo apt install ./anvil-control_<version>.alpha1-1_amd64.deb` so apt resolves
 the dependency list. Start Anvil Control from your application menu afterwards.
+Download filenames use `.alpha1-1`; the package's internal Debian version retains
+`~alpha1-1` so its prerelease version metadata remains unchanged.
 
 This package requires amd64, glibc 2.34 or newer, Python 3.10–3.14 and python3-venv.
 It does not depend on the distribution providing PySide6, so Ubuntu 22.04/24.04

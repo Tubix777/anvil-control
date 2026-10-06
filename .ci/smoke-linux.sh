@@ -38,11 +38,13 @@ fi
 
 useradd --create-home --uid 2000 anvilci
 if [ "$mode" = bundled ]; then
-    apt-get install -y -qq "$artifacts/anvil-control_${version}~alpha1-1_amd64.deb"
+    apt-get install -y -qq "$artifacts/anvil-control_${version}.alpha1-1_amd64.deb"
     app=/usr/share/anvil-control/portable/app
     runuser -u anvilci -- python3 /usr/share/anvil-control/portable/install.py
 elif [ "$mode" = system ]; then
-    apt-get install -y -qq "$artifacts/anvil-control_${version}~alpha1-1_all.deb"
+    apt-get install -y -qq "$artifacts/anvil-control_${version}.alpha1-1_all.deb"
+    # QtTest is a smoke-test dependency, separate from the application's QtWidgets.
+    apt-get install -y -qq --no-install-recommends python3-pyside6.qttest
     app=/usr/share/anvil-control
 else
     tar -xzf "$artifacts/anvil-control-${version}-linux-x86_64.tar.gz" -C /home/anvilci
