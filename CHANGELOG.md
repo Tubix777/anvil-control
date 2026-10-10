@@ -1,5 +1,13 @@
 # Değişiklikler
 
+## 0.15.0 — 2026-10-10
+
+- Beş ana sayfa yönlü kayma ve yumuşak belirme ile açılır; kartlarda sıralı ışık geçişi ve tema rengine uyan hover kenarı vardır.
+- Düğmelerde fare ve klavye ile tıklama dalgası, tema değişiminde kısa geçiş eklendi. Normal tıklama ve klavye davranışı korunur.
+- GPU fan görseli beş kıvrımlı kanat ve hareketli çerçeveyle yenilendi; dönüş yalnız mevcut pozitif GPU fan okumasında çalışır, gerçek RPM göstergesi değildir.
+- Pencere gizlenince ve animasyonlar kapatılınca yeni efektler durur. Hızlı bölüm değişimi eski konum/opacity bırakmaz. Fan eğrisi, güç ve RGB yazma davranışı değiştirilmedi.
+- İzole okumalı testler animasyon yaşam döngüsünü, tek tıklama/klavye çağrısını ve görsel efektlerin donanım işlemi başlatmadığını doğrular.
+
 ## 0.14.0 — 2026-10-06
 
 - Fedora dışına yönelik iki DEB çeşidi, Qt bağımlılıklarını yanında taşıyan çevrimdışı Linux x86_64 arşivi ve standart Python wheel paketi eklendi. İlk açılış Qt’yi özel kullanıcı ortamında hazırlar; sistem Python’unu değiştirmez.

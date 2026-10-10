@@ -9,7 +9,7 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSettings, QProcess, QRectF, QPointF, QVariantAnimation, QEasingCurve, QSignalBlocker
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSettings, QProcess, QRectF, QPointF, QPoint, QPropertyAnimation, QVariantAnimation, QEasingCurve, QSignalBlocker
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPen, QPainterPath, QIcon, QFont, QFontDatabase
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QLabel, QPushButton, QFrame, QStackedWidget, QGridLayout, QTableWidget, QTableWidgetItem,
@@ -17,6 +17,10 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, 
     QCheckBox, QScrollArea, QLineEdit, QSpinBox, QGraphicsOpacityEffect, QDialog, QDialogButtonBox, QColorDialog)
 from .backend import Monitor, set_profile, profile_names
 from .widgets import Meter, FanRotor
+from .motion import MotionButton, MotionCard
+
+# Keep normal QPushButton semantics while adding visual interaction feedback.
+QPushButton = MotionButton
 from .insights import ThermalAlerts, SensorStats
 from . import __version__
 from .fans import channels, supports_fan_write, fan_result, FAN_PRESETS, preset_points
@@ -708,6 +712,11 @@ class Window(QMainWindow):
         self.fade.setDuration(180)
         self.fade.setEasingCurve(QEasingCurve.Type.OutCubic)
         self.fade.valueChanged.connect(self.fade_effect.setOpacity)
+        self.page_slide = QPropertyAnimation(self)
+        self.page_slide.setPropertyName(b'pos')
+        self.page_slide.setDuration(310)
+        self.page_slide.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.sliding_page = None
         self.navigate(0)
         self.tray = QSystemTrayIcon(QIcon.fromTheme('io.anvil.Control', QIcon.fromTheme('computer')), self)
         self.tray.setToolTip('Anvil Control')
@@ -737,7 +746,7 @@ class Window(QMainWindow):
         return layout
 
     def card(self, heading, detail):
-        frame = QFrame()
+        frame = MotionCard()
         frame.setObjectName('card')
         v = QVBoxLayout(frame)
         v.setContentsMargins(20, 18, 20, 18)
@@ -754,7 +763,7 @@ class Window(QMainWindow):
         self.compatibility = label('Model ve kullanılabilir özellikler algılanıyor…', 'accent')
         l.addWidget(self.compatibility)
         top = QHBoxLayout()
-        board = QFrame()
+        board = MotionCard()
         board.setObjectName('card')
         bv = QVBoxLayout(board)
         bv.setContentsMargins(14, 10, 14, 14)
@@ -782,7 +791,7 @@ class Window(QMainWindow):
             self.meters[key] = meter
         top.addLayout(grid, 1)
         l.addLayout(top)
-        fan_card = QFrame()
+        fan_card = MotionCard()
         fan_card.setObjectName('card')
         fv = QVBoxLayout(fan_card)
         fv.setContentsMargins(20, 14, 20, 14)
@@ -1057,18 +1066,54 @@ class Window(QMainWindow):
         self.rotor.ring_color = colors['rotor_ring']
         self.rotor.disabled_color = colors['rotor_disabled']
         self.rotor.update()
+        for widget in self.findChildren(MotionButton) + self.findChildren(MotionCard):
+            widget.accent_color = colors['accent']
+            widget.set_motion(self.motion)
+            widget.update()
+        if hasattr(self, 'fade') and self.motion and self.isVisible():
+            self.fade.stop()
+            self.fade.setDuration(280)
+            self.fade.setStartValue(0.55)
+            self.fade.setEndValue(1.0)
+            self.fade.start()
 
     def navigate(self, index):
         self.fade.stop()
+        old_index = self.stack.currentIndex()
+        self.page_slide.stop()
+        if self.sliding_page is not None:
+            self.sliding_page.move(0, 0)
         self.stack.setCurrentIndex(index)
-        if self.motion:
-            self.fade.setStartValue(0.45)
+        self.sliding_page = self.stack.currentWidget()
+        if self.motion and self.isVisible():
+            self.fade.setDuration(310)
+            self.fade.setStartValue(0.25)
             self.fade.setEndValue(1.0)
             self.fade.start()
+            self.page_slide.setTargetObject(self.sliding_page)
+            self.page_slide.setStartValue(QPoint(32 if index >= old_index else -32, 0))
+            self.page_slide.setEndValue(QPoint(0, 0))
+            self.page_slide.start()
+            for order, card in enumerate(self.sliding_page.findChildren(MotionCard)):
+                card.animate_in(order)
         else:
             self.fade_effect.setOpacity(1.0)
         for i, b in enumerate(self.nav):
             b.setChecked(i == index)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.navigate(self.stack.currentIndex())
+
+    def hideEvent(self, event):
+        self.fade.stop()
+        self.page_slide.stop()
+        self.fade_effect.setOpacity(1.0)
+        if self.sliding_page is not None:
+            self.sliding_page.move(0, 0)
+        for widget in self.findChildren(MotionButton) + self.findChildren(MotionCard):
+            widget.stop_motion()
+        super().hideEvent(event)
 
     def interval_changed(self, seconds):
         self.settings.setValue('interval', seconds)
@@ -1081,6 +1126,8 @@ class Window(QMainWindow):
         self.chart.set_motion(enabled)
         self.rotor.motion = enabled
         self.rotor.sync()
+        for widget in self.findChildren(MotionButton) + self.findChildren(MotionCard):
+            widget.set_motion(enabled)
         for meter in self.meters.values():
             meter.motion = enabled
             if not enabled and meter.animation.state() == QVariantAnimation.State.Running:
@@ -1089,6 +1136,9 @@ class Window(QMainWindow):
                 meter.advance(target)
         if not enabled:
             self.fade.stop()
+            self.page_slide.stop()
+            if self.sliding_page is not None:
+                self.sliding_page.move(0, 0)
             self.fade_effect.setOpacity(1)
 
     def configure_alerts(self, *args):

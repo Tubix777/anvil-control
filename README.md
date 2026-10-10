@@ -11,6 +11,8 @@
 
 [Gün Işığı tema önizlemesi](docs/daylight.png)
 
+Kayarak açılan sayfalar, sıralı kart ışıkları, tema renkli hover kenarları ve tıklama dalgaları vardır. **Ayarlar → Animasyonlar** seçeneği hareketi kapatır. Pencere gizlenince animasyonlar durur; görsel hareketler gerçek donanım hızını temsil etmez.
+
 ## Donanım kapsamı
 
 Anvil, anakart modelini DMI’dan okur ve Linux’un sunduğu sıcaklık, fan ve güç arayüzlerini gösterir. Intel `coretemp` ile AMD `k10temp` / `zenpower` işlemci sıcaklıkları okunur. NVIDIA GPU ölçümleri NVML’ye, AMD GPU ölçümleri `amdgpu` sysfs arayüzlerine, RGB cihazları isteğe bağlı OpenRGB’ye bağlıdır. Mevcut aygıta göre bazı değerler gösterilmeyebilir.
@@ -34,10 +36,10 @@ Doğrulanmamış ASUS kartlarında hazır eğri **önizlemesi**, kartın mevcut 
 
 | Kurulum | İndirilecek dosya | Kapsam |
 | --- | --- | --- |
-| Fedora 44 | `anvil-control-0.14.0-1.fc44.noarch.rpm` | İzleme ve doğrulanmış donanımda mevcut kontrol |
-| Ubuntu 22.04 / 24.04, Debian 13, Deepin 25 · x86_64 | `anvil-control_0.14.0.alpha1-1_amd64.deb` | Kendi Qt’siyle izleme |
-| Debian 13 / Ubuntu 26.04 · sistem PySide6’si mevcutsa | `anvil-control_0.14.0.alpha1-1_all.deb` | Daha küçük, sistem Qt’siyle izleme |
-| Uygun diğer Linux x86_64 sistemleri | `anvil-control-0.14.0-linux-x86_64.tar.gz` | Çevrimdışı özel Qt ortamıyla izleme |
+| Fedora 44 | `anvil-control-0.15.0-1.fc44.noarch.rpm` | İzleme ve doğrulanmış donanımda mevcut kontrol |
+| Ubuntu 22.04 / 24.04, Debian 13, Deepin 25 · x86_64 | `anvil-control_0.15.0.alpha1-1_amd64.deb` | Kendi Qt’siyle izleme |
+| Debian 13 / Ubuntu 26.04 · sistem PySide6’si mevcutsa | `anvil-control_0.15.0.alpha1-1_all.deb` | Daha küçük, sistem Qt’siyle izleme |
+| Uygun diğer Linux x86_64 sistemleri | `anvil-control-0.15.0-linux-x86_64.tar.gz` | Çevrimdışı özel Qt ortamıyla izleme |
 
 İki DEB çeşidinden yalnız birini kurun. Yeni dağıtım paketleri fan, güç veya RGB
 ayarlarını değiştirmez; Fedora’nın donanım desteği diğer dağıtımlarda doğrulanmış
@@ -46,7 +48,7 @@ sayılmaz. [Dağıtım testleri, Zorin durumu ve gereksinimler](docs/linux-suppo
 ### Ubuntu / Debian / Deepin
 
 ```bash
-sudo apt install ./anvil-control_0.14.0.alpha1-1_amd64.deb
+sudo apt install ./anvil-control_0.15.0.alpha1-1_amd64.deb
 anvil-control
 ```
 
@@ -66,7 +68,7 @@ glibc ≥ 2.34, Python 3.10–3.14, venv ve masaüstü kütüphaneleri gerekir.
 [Sürümlerden](https://github.com/Tubix777/anvil-control/releases) RPM’yi indirin:
 
 ```bash
-sudo dnf install ./anvil-control-0.14.0-1.fc44.noarch.rpm
+sudo dnf install ./anvil-control-0.15.0-1.fc44.noarch.rpm
 anvil-control
 ```
 

@@ -1,6 +1,6 @@
 """Lightweight Qt animations. No polling or hardware access in paint code."""
 from PySide6.QtCore import Qt, QVariantAnimation, QEasingCurve, QRectF, QTimer
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QPainter, QPen, QPainterPath
 from PySide6.QtWidgets import QWidget
 
 
@@ -49,7 +49,8 @@ class FanRotor(QWidget):
     """Visual motion indicates reported GPU fan activity, not actual RPM."""
     def __init__(self):
         super().__init__()
-        self.setFixedSize(38, 38)
+        self.setFixedSize(50, 50)
+        self.setAccessibleName('GPU fan etkinliği — temsili animasyon')
         self.speed = None
         self.angle = 0
         self.motion = True
@@ -85,14 +86,24 @@ class FanRotor(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.translate(19, 19)
+        p.translate(25, 25)
         p.setPen(QPen(QColor(self.ring_color), 1))
-        p.drawEllipse(QRectF(-17, -17, 34, 34))
+        p.drawEllipse(QRectF(-23, -23, 46, 46))
+        p.drawEllipse(QRectF(-20, -20, 40, 40))
+        if self.speed is not None and self.speed > 0:
+            rim = QColor(self.accent_color)
+            rim.setAlpha(150)
+            p.setPen(QPen(rim, 2.1))
+            p.drawArc(QRectF(-23, -23, 46, 46), int(-self.angle * 16), 100 * 16)
         p.rotate(self.angle)
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QColor(self.accent_color if self.speed is not None else self.disabled_color))
-        for _ in range(4):
-            p.drawRoundedRect(QRectF(2, -5, 12, 7), 3, 3)
-            p.rotate(90)
+        blade = QPainterPath()
+        blade.moveTo(3, -2)
+        blade.cubicTo(7, -14, 18, -19, 18, -7)
+        blade.cubicTo(14, 0, 8, 4, 3, -2)
+        for _ in range(5):
+            p.drawPath(blade)
+            p.rotate(72)
         p.drawEllipse(QRectF(-4, -4, 8, 8))
         p.end()

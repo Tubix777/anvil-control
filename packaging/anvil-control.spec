@@ -1,5 +1,5 @@
 Name:           anvil-control
-Version:        0.14.0
+Version:        0.15.0
 Release:        1%{?dist}
 Summary:        Desktop hardware monitor and power profile control
 License:        MIT
@@ -45,6 +45,10 @@ install -Dpm 0644 packaging/anvil-control.conf %{buildroot}%{_prefix}/lib/module
 %{_prefix}/lib/modules-load.d/anvil-control.conf
 
 %changelog
+* Sat Oct 10 2026 Anvil contributors - 0.15.0-1
+- Theme-aware hover/click effects, directional page entrances and staggered card glints
+- Stop decorative effects on hide or reduced motion; preserve hardware write guards
+
 * Tue Oct 06 2026 Anvil contributors - 0.14.0-1
 - Introduce portable Linux and Debian monitoring packages.
 - Simplify home fan details and show distribution capabilities explicitly.
